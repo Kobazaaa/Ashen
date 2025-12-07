@@ -1,7 +1,13 @@
-#include "VulkanContext.h"
+// -- Standard Library --
 #include <iostream>
 
-VulkanContext::VulkanContext(Window* window)
+// -- Ashen Includes --
+#include "VulkanContext.h"
+
+//--------------------------------------------------
+//    Constructor & Destructor
+//--------------------------------------------------
+ashen::VulkanContext::VulkanContext(Window* window)
 {
     vkb::InstanceBuilder builder;
     auto inst_ret = builder.set_app_name("Ashen")
@@ -63,38 +69,67 @@ VulkanContext::VulkanContext(Window* window)
     if (!dev_ret) throw std::runtime_error("Failed to create device");
     m_VkbDevice = dev_ret.value();
 
-    int w;
-    int h;
-    glfwGetFramebufferSize(window->GetGLFWwindow(), &w, &h);
+	VkSurfaceFormatKHR format{ VK_FORMAT_B8G8R8A8_SRGB , VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
+	auto size = window->GetFramebufferSize();
     auto swap_ret = vkb::SwapchainBuilder(m_VkbDevice, m_Surface)
-        .use_default_format_selection()
+        .set_desired_format(format)
         .set_desired_min_image_count(2)
-        .set_desired_extent(w, h)
+        .set_desired_extent(size.x, size.y)
+		.set_desired_present_mode(VK_PRESENT_MODE_MAILBOX_KHR)
         .build();
     if (!swap_ret) throw std::runtime_error("Failed to create swapchain");
     m_VkbSwapchain = swap_ret.value();
+	m_vSwapchainImageViews = m_VkbSwapchain.get_image_views().value();
 }
-VulkanContext::~VulkanContext()
+ashen::VulkanContext::~VulkanContext()
 {
 	vkDeviceWaitIdle(m_VkbDevice.device);
+	m_VkbSwapchain.destroy_image_views(m_vSwapchainImageViews);
     vkb::destroy_swapchain(m_VkbSwapchain);
     vkb::destroy_device(m_VkbDevice);
     vkb::destroy_surface(m_VkbInstance, m_Surface);
     vkb::destroy_instance(m_VkbInstance);
 }
 
-VkInstance VulkanContext::GetInstance()                     const   { return m_VkbInstance.instance; }
-VkDevice VulkanContext::GetDevice()                         const   { return m_VkbDevice.device; }
-VkPhysicalDevice VulkanContext::GetPhysicalDevice()         const   { return m_VkbPhysicalDevice.physical_device; }
+//--------------------------------------------------
+//    Base Objects
+//--------------------------------------------------
+VkInstance ashen::VulkanContext::GetInstance()                     const   { return m_VkbInstance.instance; }
+VkDevice ashen::VulkanContext::GetDevice()                         const   { return m_VkbDevice.device; }
+VkPhysicalDevice ashen::VulkanContext::GetPhysicalDevice()         const   { return m_VkbPhysicalDevice.physical_device; }
 
-VkQueue VulkanContext::GetQueue(vkb::QueueType type)        const   { return m_VkbDevice.get_queue(type).value(); }
-uint32_t VulkanContext::GetQueueIndex(vkb::QueueType type)  const   { return m_VkbDevice.get_queue_index(type).value(); }
+//--------------------------------------------------
+//    Queue Objects
+//--------------------------------------------------
+VkQueue ashen::VulkanContext::GetQueue(vkb::QueueType type)        const   { return m_VkbDevice.get_queue(type).value(); }
+uint32_t ashen::VulkanContext::GetQueueIndex(vkb::QueueType type)  const   { return m_VkbDevice.get_queue_index(type).value(); }
 
-VkSwapchainKHR VulkanContext::GetSwapchain()                const   { return m_VkbSwapchain.swapchain; }
-uint32_t VulkanContext::GetSwapchainImageCount()            const   { return m_VkbSwapchain.image_count; }
-std::vector<VkImage> VulkanContext::GetSwapchainImages()            { return m_VkbSwapchain.get_images().value(); }
-std::vector<VkImageView> VulkanContext::GetSwapchainImageViews()    { return m_VkbSwapchain.get_image_views().value(); }
-VkExtent2D VulkanContext::GetSwapchainExtent()              const   { return m_VkbSwapchain.extent; }
-VkFormat VulkanContext::GetSwapchainFormat()                const   { return m_VkbSwapchain.image_format; }
+//--------------------------------------------------
+//    Swapchain Objects
+//--------------------------------------------------
+void ashen::VulkanContext::RebuildSwapchain(glm::uvec2 size)
+{
+	vkDeviceWaitIdle(m_VkbDevice.device);
 
-VkSurfaceKHR VulkanContext::GetSurface() const { return m_Surface; }
+	m_VkbSwapchain.destroy_image_views(m_vSwapchainImageViews);
+	m_vSwapchainImageViews.clear();
+	auto swap_ret = vkb::SwapchainBuilder(m_VkbDevice, m_Surface)
+		.set_old_swapchain(m_VkbSwapchain)
+		.set_desired_extent(size.x, size.y)
+		.build();
+	if (!swap_ret) throw std::runtime_error("Failed to create swapchain");
+	vkb::destroy_swapchain(m_VkbSwapchain);
+	m_VkbSwapchain = swap_ret.value();
+	m_vSwapchainImageViews = m_VkbSwapchain.get_image_views().value();
+}
+VkSwapchainKHR ashen::VulkanContext::GetSwapchain()                const   { return m_VkbSwapchain.swapchain; }
+uint32_t ashen::VulkanContext::GetSwapchainImageCount()            const   { return m_VkbSwapchain.image_count; }
+std::vector<VkImage> ashen::VulkanContext::GetSwapchainImages()            { return m_VkbSwapchain.get_images().value(); }
+std::vector<VkImageView> ashen::VulkanContext::GetSwapchainImageViews()    { return m_vSwapchainImageViews; }
+VkExtent2D ashen::VulkanContext::GetSwapchainExtent()              const   { return m_VkbSwapchain.extent; }
+VkFormat ashen::VulkanContext::GetSwapchainFormat()                const   { return m_VkbSwapchain.image_format; }
+
+//--------------------------------------------------
+//    Other Objects
+//--------------------------------------------------
+VkSurfaceKHR ashen::VulkanContext::GetSurface() const { return m_Surface; }

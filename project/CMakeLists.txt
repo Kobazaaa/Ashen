@@ -5,9 +5,14 @@
 set(SOURCES
 	# main
 	"${SOURCE_DIR}/main.cpp"
-	"${SOURCE_DIR}/Renderer.cpp"
-	"${SOURCE_DIR}/VulkanContext.cpp"
-	"${SOURCE_DIR}/Window.cpp"
+	# helpers
+	"${SOURCE_DIR}/helpers/Timer.cpp"
+	# misc
+	"${SOURCE_DIR}/misc/Camera.cpp"
+	"${SOURCE_DIR}/misc/Window.cpp"
+	# rendering
+	"${SOURCE_DIR}/rendering/Renderer.cpp"
+	"${SOURCE_DIR}/rendering/VulkanContext.cpp"
 )
 
 # Create the executable
@@ -16,6 +21,9 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 # Set include directories
 target_include_directories(${PROJECT_NAME} PRIVATE
 	"${SOURCE_DIR}"
+	"${SOURCE_DIR}/helpers"
+	"${SOURCE_DIR}/misc"
+	"${SOURCE_DIR}/rendering"
 )
 
 # Max Warning Level & Warnings as Errors
