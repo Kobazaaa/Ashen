@@ -18,12 +18,24 @@ public:
     VkInstance GetInstance() const;
     VkDevice GetDevice() const;
     VkPhysicalDevice GetPhysicalDevice() const;
+
+    VkQueue GetQueue(vkb::QueueType type) const;
+    uint32_t GetQueueIndex(vkb::QueueType type) const;
+
+    VkSwapchainKHR GetSwapchain() const;
+    uint32_t GetSwapchainImageCount() const;
+    std::vector<VkImage> GetSwapchainImages();
+    std::vector<VkImageView> GetSwapchainImageViews();
+    VkExtent2D GetSwapchainExtent() const;
+    VkFormat GetSwapchainFormat() const;
+
     VkSurfaceKHR GetSurface() const;
 
 private:
     vkb::Instance m_VkbInstance;
     vkb::Device m_VkbDevice;
     vkb::PhysicalDevice m_VkbPhysicalDevice;
+    vkb::Swapchain m_VkbSwapchain;
     VkSurfaceKHR m_Surface{};
 };
 
