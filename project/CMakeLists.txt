@@ -12,6 +12,7 @@ set(SOURCES
 	"${SOURCE_DIR}/misc/Window.cpp"
 	# rendering
 	"${SOURCE_DIR}/rendering/pipeline/Pipeline.cpp"
+	"${SOURCE_DIR}/rendering/types/Mesh.cpp"
 	"${SOURCE_DIR}/rendering/Renderer.cpp"
 	"${SOURCE_DIR}/rendering/VulkanContext.cpp"
 )

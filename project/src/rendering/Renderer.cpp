@@ -15,7 +15,21 @@ ashen::Renderer::Renderer(VulkanContext* pContext, Window* pWindow)
     m_pCamera = std::make_unique<Camera>(pWindow);
 
 	CreateSyncObjects();
-	CreateBuffers();
+
+    constexpr float VERTEX_COLOR_CHANNEL = 0.5f;
+    constexpr glm::vec3 VERTEX_COLOR = { VERTEX_COLOR_CHANNEL , VERTEX_COLOR_CHANNEL , VERTEX_COLOR_CHANNEL };
+    m_pMesh = std::make_unique<Mesh>(*m_pContext,
+        std::vector
+        {
+			Vertex{.pos = { 1000.f, -1.f,  1000.f}, .color = VERTEX_COLOR},
+            Vertex{.pos = { 1000.f, -1.f, -1000.f}, .color = VERTEX_COLOR},
+            Vertex{.pos = {-1000.f, -1.f, -1000.f}, .color = VERTEX_COLOR},
+            Vertex{.pos = {-1000.f, -1.f,  1000.f}, .color = VERTEX_COLOR}
+        },
+        std::vector<uint32_t>
+    {
+        0, 1, 2, 0, 2, 3
+    });
 
     m_pPipeline = std::make_unique<Pipeline>(*m_pContext, 
         std::vector{
@@ -38,11 +52,6 @@ ashen::Renderer::~Renderer()
 
 	vkFreeCommandBuffers(device, m_CommandPool, static_cast<uint32_t>(m_vCommandBuffers.size()), m_vCommandBuffers.data());
 	vkDestroyCommandPool(device, m_CommandPool, nullptr);
-
-    vkDestroyBuffer(device, m_VertexBuffer, nullptr);
-    vkFreeMemory(device, m_VertexBufferMemory, nullptr);
-    vkDestroyBuffer(device, m_IndexBuffer, nullptr);
-    vkFreeMemory(device, m_IndexBufferMemory, nullptr);
 
 	for (const auto& sem : m_vImageAvailableSemaphores) vkDestroySemaphore(device, sem, nullptr);
 	for (const auto& sem : m_vRenderFinishedSemaphores) vkDestroySemaphore(device, sem, nullptr);
@@ -207,16 +216,14 @@ void ashen::Renderer::RecordCommandBuffer(uint32_t imageIndex)
     vkCmdSetViewport(cmd, 0, 1, &viewport);
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-    VkDeviceSize offsets[] = { 0 };
-    vkCmdBindVertexBuffers(cmd, 0, 1, &m_VertexBuffer, offsets);
-    vkCmdBindIndexBuffer(cmd, m_IndexBuffer, 0, VK_INDEX_TYPE_UINT16);
+    m_pMesh->Bind(cmd);
 
     TriangleShaderPCV pcvs{};
     pcvs.view = m_pCamera->GetViewMatrix();
     pcvs.proj = m_pCamera->GetProjectionMatrix();
     vkCmdPushConstants(cmd, m_pPipeline->GetLayoutHandle(), VK_SHADER_STAGE_VERTEX_BIT, 0, 2 * sizeof(glm::mat4), &pcvs);
 
-    vkCmdDrawIndexed(cmd, static_cast<uint32_t>(m_vIndices.size()), 1, 0, 0, 0);
+    m_pMesh->Draw(cmd);
 
     vkCmdEndRendering(cmd);
 
@@ -248,63 +255,6 @@ void ashen::Renderer::RecordCommandBuffer(uint32_t imageIndex)
     if (vkEndCommandBuffer(cmd) != VK_SUCCESS) {
         throw std::runtime_error("Failed to record command buffer!");
     }
-}
-void ashen::Renderer::CreateBuffers()
-{
-    auto vBufferSize = sizeof(m_vVertices[0]) * m_vVertices.size();
-    CreateBuffer(vBufferSize,
-        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        m_VertexBuffer, m_VertexBufferMemory);
-    auto iBufferSize = sizeof(m_vIndices[0]) * m_vIndices.size();
-    CreateBuffer(iBufferSize,
-        VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        m_IndexBuffer, m_IndexBufferMemory);
-
-    UploadToBuffer(m_VertexBufferMemory, (void*)m_vVertices.data(), vBufferSize);
-    UploadToBuffer(m_IndexBufferMemory, (void*)m_vIndices.data(), vBufferSize);
-}
-void ashen::Renderer::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const
-{
-    VkBufferCreateInfo bufferInfo{};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = size;
-    bufferInfo.usage = usage;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    if (vkCreateBuffer(m_pContext->GetDevice(), &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
-        throw std::runtime_error("Failed to create buffer");
-
-    VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(m_pContext->GetDevice(), buffer, &memRequirements);
-
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memRequirements.size;
-
-    VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties(m_pContext->GetPhysicalDevice(), &memProperties);
-    uint32_t outcome = 0;
-    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
-    {
-        if ((memRequirements.memoryTypeBits & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
-        {
-            outcome = i;
-            break;
-        }
-    }
-    allocInfo.memoryTypeIndex = outcome;
-
-    if (vkAllocateMemory(m_pContext->GetDevice(), &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
-        throw std::runtime_error("Failed to allocate buffer memory");
-
-    vkBindBufferMemory(m_pContext->GetDevice(), buffer, bufferMemory, 0);
-}
-void ashen::Renderer::UploadToBuffer(const VkDeviceMemory& bufferMemory, void* data, VkDeviceSize size) const
-{
-    void* pData;
-    vkMapMemory(m_pContext->GetDevice(), bufferMemory, 0, VK_WHOLE_SIZE, 0, &pData);
-    memcpy(pData, data, size);
-    vkUnmapMemory(m_pContext->GetDevice(), bufferMemory);
 }
 
 void ashen::Renderer::CreateCommandBuffers()
