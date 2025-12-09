@@ -3,6 +3,7 @@
 
 // -- Ashen Includes --
 #include "Renderer.h"
+#include "Types.h"
 
 //--------------------------------------------------
 //    Constructor & Destructor
@@ -15,7 +16,19 @@ ashen::Renderer::Renderer(VulkanContext* pContext, Window* pWindow)
 
 	CreateSyncObjects();
 	CreateBuffers();
-    CreatePipeline();
+
+    m_pPipeline = std::make_unique<Pipeline>(*m_pContext, 
+        std::vector{
+        VkPushConstantRange{
+				.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+				.offset = 0u,
+				.size = sizeof(TriangleShaderPCV)
+			}
+        }, 
+        std::vector<VkDescriptorSetLayout>{
+        }, 
+        "shaders/triangle.vert.spv", "shaders/triangle.frag.spv");
+
 	CreateCommandBuffers();
 }
 ashen::Renderer::~Renderer()
@@ -25,9 +38,6 @@ ashen::Renderer::~Renderer()
 
 	vkFreeCommandBuffers(device, m_CommandPool, static_cast<uint32_t>(m_vCommandBuffers.size()), m_vCommandBuffers.data());
 	vkDestroyCommandPool(device, m_CommandPool, nullptr);
-
-    vkDestroyPipeline(device, m_Pipeline, nullptr);
-    vkDestroyPipelineLayout(device, m_PipelineLayout, nullptr);
 
     vkDestroyBuffer(device, m_VertexBuffer, nullptr);
     vkFreeMemory(device, m_VertexBufferMemory, nullptr);
@@ -144,9 +154,9 @@ void ashen::Renderer::RecordCommandBuffer(uint32_t imageIndex)
     presentBarrier.image = m_pContext->GetSwapchainImages()[imageIndex];
     presentBarrier.subresourceRange = 
     {
-        VK_IMAGE_ASPECT_COLOR_BIT,
-        0, 1,
-        0, 1
+	    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+	    .baseMipLevel = 0, .levelCount = 1,
+	    .baseArrayLayer = 0, .layerCount = 1
     };
     firstRun = true;
 
@@ -180,7 +190,7 @@ void ashen::Renderer::RecordCommandBuffer(uint32_t imageIndex)
 
     vkCmdBeginRendering(cmd, &renderingInfo);
 
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pPipeline->GetPipelineHandle());
 
     VkViewport viewport{};
     viewport.x = 0.0f;
@@ -201,19 +211,14 @@ void ashen::Renderer::RecordCommandBuffer(uint32_t imageIndex)
     vkCmdBindVertexBuffers(cmd, 0, 1, &m_VertexBuffer, offsets);
     vkCmdBindIndexBuffer(cmd, m_IndexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
-    struct PC
-    {
-        glm::mat4 view;
-        glm::mat4 proj;
-    } pcvs;
+    TriangleShaderPCV pcvs{};
     pcvs.view = m_pCamera->GetViewMatrix();
     pcvs.proj = m_pCamera->GetProjectionMatrix();
-    vkCmdPushConstants(cmd, m_PipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, 2 * sizeof(glm::mat4), &pcvs);
+    vkCmdPushConstants(cmd, m_pPipeline->GetLayoutHandle(), VK_SHADER_STAGE_VERTEX_BIT, 0, 2 * sizeof(glm::mat4), &pcvs);
 
     vkCmdDrawIndexed(cmd, static_cast<uint32_t>(m_vIndices.size()), 1, 0, 0, 0);
 
     vkCmdEndRendering(cmd);
-
 
     presentBarrier = {};
     presentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -224,9 +229,9 @@ void ashen::Renderer::RecordCommandBuffer(uint32_t imageIndex)
     presentBarrier.image = m_pContext->GetSwapchainImages()[imageIndex];
     presentBarrier.subresourceRange = 
     {
-        VK_IMAGE_ASPECT_COLOR_BIT,
-        0, 1,
-        0, 1
+	    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+	    .baseMipLevel = 0, .levelCount = 1,
+	    .baseArrayLayer = 0, .layerCount = 1
     };
 
     vkCmdPipelineBarrier(
@@ -354,185 +359,4 @@ void ashen::Renderer::CreateSyncObjects()
             throw std::runtime_error("Failed to create sync objects");
         }
     }
-}
-
-void ashen::Renderer::CreatePipeline()
-{
-    // -- Vertex Push Constant Range --
-    VkPushConstantRange pushConstantRangeVertex{};
-    pushConstantRangeVertex.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    pushConstantRangeVertex.size = 2 * sizeof(glm::mat4);
-    pushConstantRangeVertex.offset = 0;
-
-    // -- Pipeline Layout --
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 0;
-    pipelineLayoutInfo.pSetLayouts = nullptr;
-    pipelineLayoutInfo.pushConstantRangeCount = 1;
-    pipelineLayoutInfo.pPushConstantRanges = &pushConstantRangeVertex;
-
-    if (vkCreatePipelineLayout(m_pContext->GetDevice(), &pipelineLayoutInfo, nullptr, &m_PipelineLayout) != VK_SUCCESS)
-        throw std::runtime_error("failed to create Pipeline Layout!");
-
-    // -- Vertex Info --
-    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-    auto bindingDescription = Vertex::GetBindingDescription();
-    auto attrDescriptions = Vertex::GetAttributeDescriptions();
-    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexBindingDescriptionCount = 1;
-    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attrDescriptions.size());
-    vertexInputInfo.pVertexAttributeDescriptions = attrDescriptions.data();
-
-    // -- Shaders --
-    VkShaderModule vertShader{};
-    LoadShaderModule("shaders/triangle.vert.spv", vertShader);
-
-    VkPipelineShaderStageCreateInfo shaderInfoVert{};
-    shaderInfoVert.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    shaderInfoVert.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    shaderInfoVert.module = vertShader;
-    shaderInfoVert.pName = "main";
-    shaderInfoVert.pSpecializationInfo = nullptr;
-
-    VkShaderModule fragShader{};
-    LoadShaderModule("shaders/triangle.frag.spv", fragShader);
-    VkPipelineShaderStageCreateInfo shaderInfoFrag{};
-    shaderInfoFrag.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    shaderInfoFrag.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    shaderInfoFrag.module = fragShader;
-    shaderInfoFrag.pName = "main";
-    shaderInfoFrag.pSpecializationInfo = nullptr;
-
-    VkPipelineShaderStageCreateInfo shaderStages[] = { shaderInfoVert, shaderInfoFrag };
-
-    // -- Dynamic Rendering Info --
-    VkPipelineRenderingCreateInfo pipelineRenderingInfo{};
-    pipelineRenderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-    pipelineRenderingInfo.colorAttachmentCount = 1;
-    VkFormat swapchainFormat = m_pContext->GetSwapchainFormat();
-    pipelineRenderingInfo.pColorAttachmentFormats = &swapchainFormat;
-
-    VkPipelineViewportStateCreateInfo viewportState{};
-    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewportState.viewportCount = 1;
-    viewportState.scissorCount = 1;
-    viewportState.pViewports = nullptr;
-    viewportState.pScissors = nullptr;
-
-    // -- Input Assembly --
-    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
-    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    inputAssembly.primitiveRestartEnable = VK_FALSE;
-
-    // -- Viewport --
-    VkPipelineDynamicStateCreateInfo dynamicState{};
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
-
-    dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
-    dynamicState.pDynamicStates = dynamicStates.data();
-
-    // -- Rasterizer --
-    VkPipelineRasterizationStateCreateInfo rasterizer{};
-    rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    rasterizer.depthClampEnable = VK_FALSE;
-    rasterizer.rasterizerDiscardEnable = VK_FALSE;
-    rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-    rasterizer.lineWidth = 1.0f;
-    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-    rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
-    rasterizer.depthBiasEnable = VK_FALSE;
-
-    // -- Multisampling --
-    VkPipelineMultisampleStateCreateInfo multisampling{};
-    multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisampling.sampleShadingEnable = VK_FALSE;
-    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-
-    // -- Color Blending Attachment --
-    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment.blendEnable = VK_FALSE;
-
-    // -- Color Blending --
-    VkPipelineColorBlendStateCreateInfo colorBlending{};
-    colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlending.logicOpEnable = VK_FALSE;
-    colorBlending.logicOp = VK_LOGIC_OP_COPY;
-    colorBlending.attachmentCount = 1;
-    colorBlending.pAttachments = &colorBlendAttachment;
-    colorBlending.blendConstants[0] = 0.0f;
-    colorBlending.blendConstants[1] = 0.0f;
-    colorBlending.blendConstants[2] = 0.0f;
-    colorBlending.blendConstants[3] = 0.0f;
-
-    // -- Depth Stencil --
-    VkPipelineDepthStencilStateCreateInfo depthInfo{};
-	depthInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-	depthInfo.depthTestEnable = VK_FALSE;
-	depthInfo.depthWriteEnable = VK_FALSE;
-	depthInfo.depthCompareOp = VK_COMPARE_OP_LESS;
-	depthInfo.depthBoundsTestEnable = VK_FALSE;
-	depthInfo.minDepthBounds = 0.0f;
-	depthInfo.maxDepthBounds = 1.0f;
-	depthInfo.stencilTestEnable = VK_FALSE;
-	depthInfo.front = {};
-	depthInfo.back = {};
-
-    // -- Pipeline --
-    VkGraphicsPipelineCreateInfo pipelineInfo{};
-    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.pNext = &pipelineRenderingInfo;
-    pipelineInfo.stageCount = 2;
-    pipelineInfo.pStages = shaderStages;
-    pipelineInfo.pVertexInputState = &vertexInputInfo;
-    pipelineInfo.pInputAssemblyState = &inputAssembly;
-    pipelineInfo.pViewportState = &viewportState;
-    pipelineInfo.pRasterizationState = &rasterizer;
-    pipelineInfo.pMultisampleState = &multisampling;
-    pipelineInfo.pColorBlendState = &colorBlending;
-    pipelineInfo.pDepthStencilState = &depthInfo;
-    pipelineInfo.pDynamicState = &dynamicState;
-    pipelineInfo.layout = m_PipelineLayout;
-
-    vkCreateGraphicsPipelines(m_pContext->GetDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_Pipeline);
-
-    // -- Destroy Shaders --
-    vkDestroyShaderModule(m_pContext->GetDevice(), vertShader, nullptr);
-    vkDestroyShaderModule(m_pContext->GetDevice(), fragShader, nullptr);
-}
-
-void ashen::Renderer::LoadShaderModule(const std::string& filename, VkShaderModule& shaderMod) const
-{
-    // -- Load & Read Shader --
-    std::ifstream file(filename, std::ios::ate | std::ios::binary);
-    if (!file.is_open())
-        throw std::runtime_error("Failed to open file: " + filename);
-
-    size_t fileSize = (size_t)file.tellg();
-
-    std::vector<char> vCode{};
-    vCode.resize(fileSize);
-
-    file.seekg(0);
-    file.read(vCode.data(), static_cast<uint32_t>(fileSize));
-
-    file.close();
-
-    // -- Create Shader Module --
-    VkShaderModuleCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    createInfo.codeSize = vCode.size();
-    createInfo.pCode = reinterpret_cast<const uint32_t*>(vCode.data());
-
-	if (vkCreateShaderModule(m_pContext->GetDevice(), &createInfo, nullptr, &shaderMod) != VK_SUCCESS)
-        throw std::runtime_error("Failed to create Shader Module!");
-
-    vCode.clear();
 }

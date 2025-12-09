@@ -1,8 +1,12 @@
 #ifndef ASHEN_RENDERER_H
 #define ASHEN_RENDERER_H
 
+// -- Standard Library --
+#include <memory>
+
 // -- Ashen Includes --
 #include "Camera.h"
+#include "Pipeline.h"
 #include "Vertex.h"
 #include "VulkanContext.h"
 #include "Window.h"
@@ -40,8 +44,6 @@ namespace ashen
         void UploadToBuffer(const VkDeviceMemory& bufferMemory, void* data, VkDeviceSize size) const;
         void CreateCommandBuffers();
         void CreateSyncObjects();
-        void CreatePipeline();
-        void LoadShaderModule(const std::string& filename, VkShaderModule& shaderMod) const;
 
         VulkanContext* m_pContext;
         Window* m_pWindow;
@@ -56,8 +58,7 @@ namespace ashen
         VkDeviceMemory m_IndexBufferMemory;
 
         // Pipeline
-        VkPipelineLayout m_PipelineLayout{};
-        VkPipeline m_Pipeline{};
+        std::unique_ptr<Pipeline> m_pPipeline{};
 
         // Sync
         std::vector<VkSemaphore> m_vImageAvailableSemaphores;
