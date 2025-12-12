@@ -44,28 +44,66 @@ ashen::Renderer::Renderer(VulkanContext* pContext, Window* pWindow)
         0, 1, 2, 0, 2, 3
     });
 
-    m_pPipelineDefault = std::make_unique<Pipeline>(*m_pContext, 
-        std::vector{
-        VkPushConstantRange{
-				.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-				.offset = 0u,
-				.size = sizeof(TriangleShaderPCV)
-			}
-        }, 
-        std::vector<VkDescriptorSetLayout>{
-        }, 
-        "shaders/triangle.vert.spv", "shaders/triangle.frag.spv");
-    m_pPipelineSky = std::make_unique<Pipeline>(*m_pContext, 
-        std::vector{
-        VkPushConstantRange{
-				.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-				.offset = 0u,
-				.size = sizeof(TriangleShaderPCV)
-			}
-        }, 
-        std::vector<VkDescriptorSetLayout>{
-        }, 
-        "shaders/SkyFromSpace.vert.spv", "shaders/SkyFromSpace.frag.spv");
+    VkPipelineRenderingCreateInfo pipelineRenderingInfo{};
+    pipelineRenderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+    pipelineRenderingInfo.colorAttachmentCount = 1;
+    VkFormat swapchainFormat = m_pContext->GetSwapchainFormat();
+    pipelineRenderingInfo.pColorAttachmentFormats = &swapchainFormat;
+
+    PipelineBuilder pipelineBuilder{ *m_pContext };
+    pipelineBuilder
+		.AddPushConstantRange()
+			.SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
+			.SetOffset(0)
+			.SetSize(sizeof(TriangleShaderPCV))
+			.EndRange()
+		.SetVertexAttributeDesc(Vertex::GetAttributeDescriptions())
+		.SetVertexBindingDesc(Vertex::GetBindingDescription())
+
+		.SetVertexShader("shaders/triangle.vert.spv")
+		.SetFragmentShader("shaders/triangle.frag.spv")
+
+		.AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT)
+		.AddDynamicState(VK_DYNAMIC_STATE_SCISSOR)
+
+		.SetDepthTest(VK_FALSE, VK_FALSE, VK_COMPARE_OP_NEVER)
+
+		.SetCullMode(VK_CULL_MODE_BACK_BIT)
+		.SetFrontFace(VK_FRONT_FACE_CLOCKWISE)
+		.SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+		.SetPolygonMode(VK_POLYGON_MODE_FILL)
+
+        .SetupDynamicRendering(pipelineRenderingInfo)
+
+		.Build(m_PipelineDefault);
+		
+
+    pipelineBuilder = { *m_pContext };
+    pipelineBuilder
+        .AddPushConstantRange()
+        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
+        .SetOffset(0)
+        .SetSize(sizeof(TriangleShaderPCV))
+        .EndRange()
+        .SetVertexAttributeDesc(Vertex::GetAttributeDescriptions())
+        .SetVertexBindingDesc(Vertex::GetBindingDescription())
+
+        .SetVertexShader("shaders/SkyFromSpace.vert.spv")
+        .SetFragmentShader("shaders/SkyFromSpace.frag.spv")
+
+        .AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT)
+        .AddDynamicState(VK_DYNAMIC_STATE_SCISSOR)
+
+        .SetDepthTest(VK_FALSE, VK_FALSE, VK_COMPARE_OP_NEVER)
+
+        .SetCullMode(VK_CULL_MODE_NONE)
+        .SetFrontFace(VK_FRONT_FACE_CLOCKWISE)
+        .SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+        .SetPolygonMode(VK_POLYGON_MODE_FILL)
+
+        .SetupDynamicRendering(pipelineRenderingInfo)
+
+        .Build(m_PipelineSky);
 
 	CreateCommandBuffers();
 }
@@ -177,10 +215,9 @@ void ashen::Renderer::RecordCommandBuffer(uint32_t imageIndex)
         throw std::runtime_error("Failed to begin command buffer!");
     }
 
-    static bool firstRun = true;
     VkImageMemoryBarrier presentBarrier{};
     presentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    presentBarrier.oldLayout = firstRun ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    presentBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     presentBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     presentBarrier.srcAccessMask = VK_ACCESS_NONE;
     presentBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
@@ -191,7 +228,6 @@ void ashen::Renderer::RecordCommandBuffer(uint32_t imageIndex)
 	    .baseMipLevel = 0, .levelCount = 1,
 	    .baseArrayLayer = 0, .layerCount = 1
     };
-    firstRun = true;
 
     vkCmdPipelineBarrier(
         cmd,
@@ -223,20 +259,20 @@ void ashen::Renderer::RecordCommandBuffer(uint32_t imageIndex)
 
     vkCmdBeginRendering(cmd, &renderingInfo);
 
-    m_pPipelineDefault->Bind(cmd);
+    m_PipelineDefault.Bind(cmd);
     m_pMeshFloor->Bind(cmd);
 
     TriangleShaderPCV pcvs{};
     pcvs.view = m_pCamera->GetViewMatrix();
     pcvs.proj = m_pCamera->GetProjectionMatrix();
-    vkCmdPushConstants(cmd, m_pPipelineDefault->GetLayoutHandle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(TriangleShaderPCV), &pcvs);
+    vkCmdPushConstants(cmd, m_PipelineDefault.GetLayoutHandle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(TriangleShaderPCV), &pcvs);
 
     m_pMeshFloor->Draw(cmd);
 
-    m_pPipelineSky->Bind(cmd);
+    m_PipelineSky.Bind(cmd);
     m_pMeshSky->Bind(cmd);
 
-    vkCmdPushConstants(cmd, m_pPipelineSky->GetLayoutHandle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(TriangleShaderPCV), &pcvs);
+    vkCmdPushConstants(cmd, m_PipelineSky.GetLayoutHandle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(TriangleShaderPCV), &pcvs);
 
     m_pMeshSky->Draw(cmd);
 

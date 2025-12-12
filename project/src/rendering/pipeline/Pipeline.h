@@ -26,16 +26,13 @@ namespace ashen
 		//--------------------------------------------------
 		//    Constructor & Destructor
 		//--------------------------------------------------
-		explicit Pipeline(VulkanContext& context, 
-						const std::vector<VkPushConstantRange>& pcr, 
-						const std::vector<VkDescriptorSetLayout>& dcl,
-						const std::string& vs, const std::string& fs);
+		Pipeline() = default;
 		~Pipeline();
 
 		Pipeline(const Pipeline& other) = delete;
-		Pipeline(Pipeline&& other) noexcept = delete;
+		Pipeline(Pipeline&& other) noexcept = default;
 		Pipeline& operator=(const Pipeline& other) = delete;
-		Pipeline& operator=(Pipeline&& other) noexcept = delete;
+		Pipeline& operator=(Pipeline&& other) noexcept = default;
 
 		//--------------------------------------------------
 		//    Functionality
@@ -49,12 +46,107 @@ namespace ashen
 		const VkPipelineLayout& GetLayoutHandle() const;
 
 	private:
-		void LoadShaderModule(const std::string& filename, VkShaderModule& shaderMod) const;
 
 		VkPipeline m_Pipeline;
 		VkPipelineLayout m_Layout;
 		VulkanContext* m_pContext{};
+
+		friend class PipelineBuilder;
 	};
+
+
+	//? ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	//? ~~	  PushConstantRange
+	//? ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	class PushConstantRange final
+	{
+	public:
+		//--------------------------------------------------
+		//    Build
+		//--------------------------------------------------
+		PushConstantRange& SetStageFlags(VkShaderStageFlags flags);
+		PushConstantRange& SetOffset(uint32_t offset);
+		PushConstantRange& SetSize(uint32_t size);
+		PipelineBuilder& EndRange() const;
+
+	private:
+		//--------------------------------------------------
+		//    Constructor
+		//--------------------------------------------------
+		PushConstantRange(PipelineBuilder& pipelineBuilder);
+
+		VkPushConstantRange m_Range{};
+		PipelineBuilder* m_pBuilder{};
+
+		friend class PipelineBuilder;
+	};
+
+
+	//? ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	//? ~~	  Pipeline Builder
+	//? ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	class PipelineBuilder final
+	{
+	public:
+		//--------------------------------------------------
+		//    Constructor & Destructor
+		//--------------------------------------------------
+		PipelineBuilder(VulkanContext& context);
+
+		//--------------------------------------------------
+		//    Build
+		//--------------------------------------------------
+		// -- Push Constants --
+		PushConstantRange& AddPushConstantRange();
+
+		// -- Shaders --
+		PipelineBuilder& SetVertexShader(const std::string& vs);
+		PipelineBuilder& SetFragmentShader(const std::string& fs);
+
+		// -- Vertex --
+		PipelineBuilder& SetVertexBindingDesc(const VkVertexInputBindingDescription& desc);
+		PipelineBuilder& SetVertexAttributeDesc(const std::vector<VkVertexInputAttributeDescription>& attr);
+
+		// -- Other --
+		PipelineBuilder& SetPrimitiveTopology(VkPrimitiveTopology topology);
+		PipelineBuilder& SetCullMode(VkCullModeFlags cullMode);
+		PipelineBuilder& SetPolygonMode(VkPolygonMode polyMode);
+		PipelineBuilder& SetFrontFace(VkFrontFace front);
+		PipelineBuilder& AddDynamicState(VkDynamicState dynamicState);
+		PipelineBuilder& SetupDynamicRendering(VkPipelineRenderingCreateInfo& dynamicRenderInfo);
+
+		// -- Depth Testing --
+		PipelineBuilder& SetDepthTest(VkBool32 depthRead, VkBool32 depthWrite, VkCompareOp compareOp);
+
+		// -- Build --
+		void Build(Pipeline& pipeline);
+
+	private:
+		void LoadShaderModule(const std::string& filename, VkShaderModule& shaderMod) const;
+		void*		m_pNext;
+
+		VkPipelineVertexInputStateCreateInfo				m_VertexInputInfo{};
+		VkPipelineInputAssemblyStateCreateInfo				m_InputAssembly{};
+		VkPipelineViewportStateCreateInfo					m_ViewportState{};
+		VkPipelineRasterizationStateCreateInfo				m_RasterizerInfo{};
+		VkPipelineMultisampleStateCreateInfo				m_MultiSamplingInfo{};
+		VkPipelineDepthStencilStateCreateInfo				m_DepthStencilInfo{};
+		std::vector<VkPipelineColorBlendAttachmentState>	m_vColorBlendAttachmentState{};
+		VkPipelineColorBlendStateCreateInfo					m_ColorBlendCreateInfo{};
+		VkPipelineDynamicStateCreateInfo					m_DynamicStateInfo{};
+
+		std::vector<VkDynamicState>							m_vDynamicStates;
+		std::vector<VkPipelineShaderStageCreateInfo>		m_vShaderInfo;
+		std::vector<VkSpecializationMapEntry >				m_vShaderSpecializationEntries;
+		std::vector<VkSpecializationInfo>					m_vSpecializationInfo;
+		std::vector<PushConstantRange>						m_vPushConstantRanges;
+
+		VkShaderModule										m_VertexShader{};
+		VkShaderModule										m_FragmentShader{};
+		VulkanContext*										m_pContext{};
+	};
+
+
 }
 
 #endif // ASHEN_PIPELINE_H

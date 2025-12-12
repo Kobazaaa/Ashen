@@ -52,8 +52,8 @@ namespace ashen
         std::vector<VkCommandBuffer> m_vCommandBuffers;
 
         // Pipeline
-        std::unique_ptr<Pipeline> m_pPipelineDefault{};
-        std::unique_ptr<Pipeline> m_pPipelineSky{};
+        Pipeline m_PipelineDefault{};
+        Pipeline m_PipelineSky{};
 
         // Sync
         std::vector<VkSemaphore> m_vImageAvailableSemaphores;

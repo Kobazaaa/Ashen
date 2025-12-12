@@ -5,170 +5,17 @@
 // -- Ashen Includes --
 #include "Pipeline.h"
 #include "VulkanContext.h"
-#include "Vertex.h"
 
+//? ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//? ~~	  Pipeline
+//? ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-ashen::Pipeline::Pipeline(VulkanContext& context,
-							const std::vector<VkPushConstantRange>& pcr, const std::vector<VkDescriptorSetLayout>& dcl,
-							const std::string& vs, const std::string& fs)
-{
-    m_pContext = &context;
-
-    // -- Pipeline Layout --
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(dcl.size());
-    pipelineLayoutInfo.pSetLayouts = dcl.empty() ? nullptr : dcl.data();
-    pipelineLayoutInfo.pushConstantRangeCount = static_cast<uint32_t>(pcr.size());
-    pipelineLayoutInfo.pPushConstantRanges = pcr.empty() ? nullptr : pcr.data();
-
-    if (vkCreatePipelineLayout(m_pContext->GetDevice(), &pipelineLayoutInfo, nullptr, &m_Layout) != VK_SUCCESS)
-        throw std::runtime_error("failed to create Pipeline Layout!");
-
-    // -- Vertex Info --
-    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-    auto bindingDescription = Vertex::GetBindingDescription();
-    auto attrDescriptions = Vertex::GetAttributeDescriptions();
-    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexBindingDescriptionCount = 1;
-    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attrDescriptions.size());
-    vertexInputInfo.pVertexAttributeDescriptions = attrDescriptions.data();
-
-    // -- Shaders --
-    VkPipelineShaderStageCreateInfo shaderStages[2] = { };
-    VkShaderModule vertShader{ VK_NULL_HANDLE };
-    VkShaderModule fragShader{ VK_NULL_HANDLE };
-
-    if (!vs.empty())
-    {
-	    LoadShaderModule(vs, vertShader);
-
-	    VkPipelineShaderStageCreateInfo shaderInfoFragVert{};
-        shaderInfoFragVert.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        shaderInfoFragVert.stage = VK_SHADER_STAGE_VERTEX_BIT;
-        shaderInfoFragVert.module = vertShader;
-        shaderInfoFragVert.pName = "main";
-        shaderInfoFragVert.pSpecializationInfo = nullptr;
-        shaderStages[0] = shaderInfoFragVert;
-    }
-
-    if (!fs.empty())
-    {
-	    LoadShaderModule(fs, fragShader);
-
-	    VkPipelineShaderStageCreateInfo shaderInfoFragFrag{};
-        shaderInfoFragFrag.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        shaderInfoFragFrag.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-        shaderInfoFragFrag.module = fragShader;
-        shaderInfoFragFrag.pName = "main";
-        shaderInfoFragFrag.pSpecializationInfo = nullptr;
-        shaderStages[1] = shaderInfoFragFrag;
-    }
-
-
-    // -- Dynamic Rendering Info --
-    VkPipelineRenderingCreateInfo pipelineRenderingInfo{};
-    pipelineRenderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-    pipelineRenderingInfo.colorAttachmentCount = 1;
-    VkFormat swapchainFormat = m_pContext->GetSwapchainFormat();
-    pipelineRenderingInfo.pColorAttachmentFormats = &swapchainFormat;
-
-    VkPipelineViewportStateCreateInfo viewportState{};
-    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewportState.viewportCount = 1;
-    viewportState.scissorCount = 1;
-    viewportState.pViewports = nullptr;
-    viewportState.pScissors = nullptr;
-
-    // -- Input Assembly --
-    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
-    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    inputAssembly.primitiveRestartEnable = VK_FALSE;
-
-    // -- Viewport --
-    VkPipelineDynamicStateCreateInfo dynamicState{};
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
-
-    dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
-    dynamicState.pDynamicStates = dynamicStates.data();
-
-    // -- Rasterizer --
-    VkPipelineRasterizationStateCreateInfo rasterizer{};
-    rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    rasterizer.depthClampEnable = VK_FALSE;
-    rasterizer.rasterizerDiscardEnable = VK_FALSE;
-    rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-    rasterizer.lineWidth = 1.0f;
-    rasterizer.cullMode = VK_CULL_MODE_NONE;
-    rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
-    rasterizer.depthBiasEnable = VK_FALSE;
-
-    // -- Multisampling --
-    VkPipelineMultisampleStateCreateInfo multisampling{};
-    multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisampling.sampleShadingEnable = VK_FALSE;
-    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-
-    // -- Color Blending Attachment --
-    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment.blendEnable = VK_FALSE;
-
-    // -- Color Blending --
-    VkPipelineColorBlendStateCreateInfo colorBlending{};
-    colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlending.logicOpEnable = VK_FALSE;
-    colorBlending.logicOp = VK_LOGIC_OP_COPY;
-    colorBlending.attachmentCount = 1;
-    colorBlending.pAttachments = &colorBlendAttachment;
-    colorBlending.blendConstants[0] = 0.0f;
-    colorBlending.blendConstants[1] = 0.0f;
-    colorBlending.blendConstants[2] = 0.0f;
-    colorBlending.blendConstants[3] = 0.0f;
-
-    // -- Depth Stencil --
-    VkPipelineDepthStencilStateCreateInfo depthInfo{};
-    depthInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depthInfo.depthTestEnable = VK_FALSE;
-    depthInfo.depthWriteEnable = VK_FALSE;
-    depthInfo.depthCompareOp = VK_COMPARE_OP_LESS;
-    depthInfo.depthBoundsTestEnable = VK_FALSE;
-    depthInfo.minDepthBounds = 0.0f;
-    depthInfo.maxDepthBounds = 1.0f;
-    depthInfo.stencilTestEnable = VK_FALSE;
-    depthInfo.front = {};
-    depthInfo.back = {};
-
-    // -- Pipeline --
-    VkGraphicsPipelineCreateInfo pipelineInfo{};
-    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.pNext = &pipelineRenderingInfo;
-    pipelineInfo.stageCount = 2;
-    pipelineInfo.pStages = shaderStages;
-    pipelineInfo.pVertexInputState = &vertexInputInfo;
-    pipelineInfo.pInputAssemblyState = &inputAssembly;
-    pipelineInfo.pViewportState = &viewportState;
-    pipelineInfo.pRasterizationState = &rasterizer;
-    pipelineInfo.pMultisampleState = &multisampling;
-    pipelineInfo.pColorBlendState = &colorBlending;
-    pipelineInfo.pDepthStencilState = &depthInfo;
-    pipelineInfo.pDynamicState = &dynamicState;
-    pipelineInfo.layout = m_Layout;
-
-    vkCreateGraphicsPipelines(m_pContext->GetDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_Pipeline);
-
-    // -- Destroy Shaders --
-    if(vertShader != VK_NULL_HANDLE) vkDestroyShaderModule(m_pContext->GetDevice(), vertShader, nullptr);
-    if(fragShader != VK_NULL_HANDLE) vkDestroyShaderModule(m_pContext->GetDevice(), fragShader, nullptr);
-}
+//--------------------------------------------------
+//    Destructor
+//--------------------------------------------------
 ashen::Pipeline::~Pipeline()
 {
+    if (!m_pContext) return;
 	vkDestroyPipelineLayout(m_pContext->GetDevice(), m_Layout, nullptr);
 	vkDestroyPipeline(m_pContext->GetDevice(), m_Pipeline, nullptr);
 }
@@ -210,10 +57,292 @@ const VkPipelineLayout& ashen::Pipeline::GetLayoutHandle() const
 }
 
 
+//? ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//? ~~	  PushConstantRange
+//? ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //--------------------------------------------------
-//    Helpers
+//    Build
 //--------------------------------------------------
-void ashen::Pipeline::LoadShaderModule(const std::string& filename, VkShaderModule& shaderMod) const
+ashen::PushConstantRange& ashen::PushConstantRange::SetStageFlags(VkShaderStageFlags flags)
+{
+    m_Range.stageFlags = flags;
+	return *this;
+}
+ashen::PushConstantRange& ashen::PushConstantRange::SetOffset(uint32_t offset)
+{
+    m_Range.offset = offset;
+    return *this;
+}
+ashen::PushConstantRange& ashen::PushConstantRange::SetSize(uint32_t size)
+{
+    m_Range.size = size;
+    return *this;
+}
+ashen::PipelineBuilder& ashen::PushConstantRange::EndRange() const
+{
+	return *m_pBuilder;
+}
+
+//--------------------------------------------------
+//    Constructor
+//--------------------------------------------------
+ashen::PushConstantRange::PushConstantRange(PipelineBuilder& pipelineBuilder)
+	: m_pBuilder(&pipelineBuilder)
+{ }
+
+
+//? ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//? ~~	  Pipeline Builder
+//? ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+//--------------------------------------------------
+//    Constructor
+//--------------------------------------------------
+ashen::PipelineBuilder::PipelineBuilder(VulkanContext& context)
+{
+    m_pContext = &context;
+
+    m_VertexInputInfo = {};
+    m_VertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    m_VertexInputInfo.vertexBindingDescriptionCount = 0;
+    m_VertexInputInfo.pVertexBindingDescriptions = nullptr;
+    m_VertexInputInfo.vertexAttributeDescriptionCount = 0;
+    m_VertexInputInfo.pVertexAttributeDescriptions = nullptr;
+
+    m_InputAssembly = {};
+    m_InputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    m_InputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    m_InputAssembly.primitiveRestartEnable = VK_FALSE;
+
+    m_ViewportState = {};
+    m_ViewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    m_ViewportState.viewportCount = 1;
+    m_ViewportState.scissorCount = 1;
+
+    m_RasterizerInfo = {};
+    m_RasterizerInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    m_RasterizerInfo.depthClampEnable = VK_FALSE;
+    m_RasterizerInfo.rasterizerDiscardEnable = VK_FALSE;
+    m_RasterizerInfo.polygonMode = VK_POLYGON_MODE_FILL;
+    m_RasterizerInfo.lineWidth = 1.0f;
+    m_RasterizerInfo.cullMode = VK_CULL_MODE_BACK_BIT;
+    m_RasterizerInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    m_RasterizerInfo.depthBiasEnable = VK_FALSE;
+    m_RasterizerInfo.depthBiasConstantFactor = VK_FALSE;
+    m_RasterizerInfo.depthBiasSlopeFactor = VK_FALSE;
+
+    m_MultiSamplingInfo = {};
+    m_MultiSamplingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    m_MultiSamplingInfo.sampleShadingEnable = VK_FALSE;
+    m_MultiSamplingInfo.minSampleShading = 0.0f;
+    m_MultiSamplingInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+    m_DepthStencilInfo = {};
+    m_DepthStencilInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    m_DepthStencilInfo.depthTestEnable = VK_TRUE;
+    m_DepthStencilInfo.depthWriteEnable = VK_TRUE;
+    m_DepthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS;
+    m_DepthStencilInfo.depthBoundsTestEnable = VK_FALSE;
+    m_DepthStencilInfo.minDepthBounds = 0.0f;
+    m_DepthStencilInfo.maxDepthBounds = 1.0f;
+    m_DepthStencilInfo.stencilTestEnable = VK_FALSE;
+    m_DepthStencilInfo.front = {};
+    m_DepthStencilInfo.back = {};
+
+    m_vColorBlendAttachmentState.clear();
+
+    m_ColorBlendCreateInfo = {};
+    m_ColorBlendCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    m_ColorBlendCreateInfo.logicOpEnable = VK_FALSE;
+    m_ColorBlendCreateInfo.logicOp = VK_LOGIC_OP_COPY;
+    m_ColorBlendCreateInfo.attachmentCount = 0;
+    m_ColorBlendCreateInfo.pAttachments = nullptr;
+    m_ColorBlendCreateInfo.blendConstants[0] = 0.0f;
+    m_ColorBlendCreateInfo.blendConstants[1] = 0.0f;
+    m_ColorBlendCreateInfo.blendConstants[2] = 0.0f;
+    m_ColorBlendCreateInfo.blendConstants[3] = 0.0f;
+
+    m_DynamicStateInfo = {};
+    m_DynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    m_DynamicStateInfo.dynamicStateCount = 0;
+    m_DynamicStateInfo.pDynamicStates = nullptr;
+
+    m_pNext = nullptr;
+}
+
+//--------------------------------------------------
+//    Build
+//--------------------------------------------------
+        // -- Push Constants --
+ashen::PushConstantRange& ashen::PipelineBuilder::AddPushConstantRange()
+{
+    m_vPushConstantRanges.push_back(PushConstantRange(*this));
+    return m_vPushConstantRanges.back();
+}
+
+// -- Shaders --
+ashen::PipelineBuilder& ashen::PipelineBuilder::SetVertexShader(const std::string& vs)
+{
+    LoadShaderModule(vs, m_VertexShader);
+
+    VkPipelineShaderStageCreateInfo shaderInfo{};
+    shaderInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shaderInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    shaderInfo.module = m_VertexShader;
+    shaderInfo.pName = "main";
+    shaderInfo.pSpecializationInfo = nullptr;
+
+    m_vShaderInfo.push_back(shaderInfo);
+
+    return *this;
+}
+ashen::PipelineBuilder& ashen::PipelineBuilder::SetFragmentShader(const std::string& fs)
+{
+    LoadShaderModule(fs, m_FragmentShader);
+
+    VkPipelineShaderStageCreateInfo shaderInfo{};
+    shaderInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shaderInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    shaderInfo.module = m_FragmentShader;
+    shaderInfo.pName = "main";
+    shaderInfo.pSpecializationInfo = nullptr;
+
+    m_vShaderInfo.push_back(shaderInfo);
+
+    return *this;
+}
+
+// -- Vertex --
+ashen::PipelineBuilder& ashen::PipelineBuilder::SetVertexBindingDesc(const VkVertexInputBindingDescription& desc)
+{
+    m_VertexInputInfo.vertexBindingDescriptionCount = 1;
+    m_VertexInputInfo.pVertexBindingDescriptions = &desc;
+    return *this;
+}
+ashen::PipelineBuilder& ashen::PipelineBuilder::SetVertexAttributeDesc(const std::vector<VkVertexInputAttributeDescription>& attr)
+{
+    m_VertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attr.size());
+    m_VertexInputInfo.pVertexAttributeDescriptions = attr.data();
+    return *this;
+}
+
+// -- Other --
+ashen::PipelineBuilder& ashen::PipelineBuilder::SetPrimitiveTopology(VkPrimitiveTopology topology)
+{
+    m_InputAssembly.topology = topology;
+    return *this;
+}
+ashen::PipelineBuilder& ashen::PipelineBuilder::SetCullMode(VkCullModeFlags cullMode)
+{
+    m_RasterizerInfo.cullMode = cullMode;
+    return *this;
+}
+ashen::PipelineBuilder& ashen::PipelineBuilder::SetPolygonMode(VkPolygonMode polyMode)
+{
+    m_RasterizerInfo.polygonMode = polyMode;
+    return *this;
+}
+ashen::PipelineBuilder& ashen::PipelineBuilder::SetFrontFace(VkFrontFace front)
+{
+    m_RasterizerInfo.frontFace = front;
+    return *this;
+}
+ashen::PipelineBuilder& ashen::PipelineBuilder::AddDynamicState(VkDynamicState dynamicState)
+{
+    m_vDynamicStates.push_back(dynamicState);
+    m_DynamicStateInfo.dynamicStateCount = static_cast<uint32_t>(m_vDynamicStates.size());
+    m_DynamicStateInfo.pDynamicStates = m_vDynamicStates.data();
+    return *this;
+}
+ashen::PipelineBuilder& ashen::PipelineBuilder::SetupDynamicRendering(VkPipelineRenderingCreateInfo& dynamicRenderInfo)
+{
+    m_pNext = &dynamicRenderInfo;
+    for (uint32_t i{}; i < dynamicRenderInfo.colorAttachmentCount; ++i)
+    {
+        m_vColorBlendAttachmentState.push_back(
+            {
+                .blendEnable = VK_FALSE,
+                .srcColorBlendFactor = VK_BLEND_FACTOR_ONE,
+                .dstColorBlendFactor = VK_BLEND_FACTOR_ZERO,
+                .colorBlendOp = VK_BLEND_OP_ADD,
+                .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+                .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+                .alphaBlendOp = VK_BLEND_OP_ADD,
+                .colorWriteMask =
+                        VK_COLOR_COMPONENT_R_BIT |
+                        VK_COLOR_COMPONENT_G_BIT |
+                        VK_COLOR_COMPONENT_B_BIT |
+                        VK_COLOR_COMPONENT_A_BIT
+            }
+        );
+    }
+    return *this;
+}
+
+// -- Depth testing --
+ashen::PipelineBuilder& ashen::PipelineBuilder::SetDepthTest(VkBool32 depthRead, VkBool32 depthWrite,	VkCompareOp compareOp)
+{
+    m_DepthStencilInfo.depthWriteEnable = depthWrite;
+    m_DepthStencilInfo.depthTestEnable = depthRead;
+    m_DepthStencilInfo.depthCompareOp = compareOp;
+    return *this;
+}
+
+// -- Build --
+void ashen::PipelineBuilder::Build(Pipeline& pipeline)
+{
+    // -- Layout --
+    std::vector<VkPushConstantRange> vVulkanRanges{};
+    vVulkanRanges.reserve(m_vPushConstantRanges.size());
+    for (auto range : m_vPushConstantRanges)
+        vVulkanRanges.push_back(range.m_Range);
+
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount = 0;
+    pipelineLayoutInfo.pSetLayouts = nullptr;
+    pipelineLayoutInfo.pushConstantRangeCount = static_cast<uint32_t>(vVulkanRanges.size());
+    pipelineLayoutInfo.pPushConstantRanges = vVulkanRanges.empty() ? nullptr : vVulkanRanges.data();
+
+    if (vkCreatePipelineLayout(m_pContext->GetDevice(), &pipelineLayoutInfo, nullptr, &pipeline.m_Layout) != VK_SUCCESS)
+        throw std::runtime_error("failed to create Pipeline Layout!");
+
+    // -- Pipeline --
+    m_ColorBlendCreateInfo.attachmentCount = static_cast<uint32_t>(m_vColorBlendAttachmentState.size());
+    m_ColorBlendCreateInfo.pAttachments = m_vColorBlendAttachmentState.data();
+    VkGraphicsPipelineCreateInfo pipelineInfo{};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pipelineInfo.pNext = m_pNext;
+    pipelineInfo.stageCount = static_cast<uint32_t>(m_vShaderInfo.size());
+    pipelineInfo.pStages = m_vShaderInfo.data();
+    pipelineInfo.pVertexInputState = &m_VertexInputInfo;
+    pipelineInfo.pInputAssemblyState = &m_InputAssembly;
+    pipelineInfo.pViewportState = &m_ViewportState;
+    pipelineInfo.pRasterizationState = &m_RasterizerInfo;
+    pipelineInfo.pMultisampleState = &m_MultiSamplingInfo;
+    pipelineInfo.pDepthStencilState = &m_DepthStencilInfo;
+    pipelineInfo.pColorBlendState = &m_ColorBlendCreateInfo;
+    pipelineInfo.pDynamicState = &m_DynamicStateInfo;
+    pipelineInfo.layout = pipeline.m_Layout;
+    pipelineInfo.renderPass = nullptr;
+    pipelineInfo.subpass = 0;
+    pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+    pipelineInfo.basePipelineIndex = -1;
+
+    if (vkCreateGraphicsPipelines(m_pContext->GetDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline.m_Pipeline) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create Graphics Pipeline!");
+
+    pipeline.m_pContext = m_pContext;
+
+    if (m_VertexShader != VK_NULL_HANDLE) vkDestroyShaderModule(m_pContext->GetDevice(), m_VertexShader, nullptr);
+    if (m_FragmentShader != VK_NULL_HANDLE) vkDestroyShaderModule(m_pContext->GetDevice(), m_FragmentShader, nullptr);
+}
+
+
+//--------------------------------------------------
+//    Helper
+//--------------------------------------------------
+void ashen::PipelineBuilder::LoadShaderModule(const std::string& filename, VkShaderModule& shaderMod) const
 {
     // -- Load & Read Shader --
     std::ifstream file(filename, std::ios::ate | std::ios::binary);

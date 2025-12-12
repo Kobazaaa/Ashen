@@ -29,9 +29,9 @@ namespace ashen
             return binding;
         }
 
-        static std::array<VkVertexInputAttributeDescription, 2> GetAttributeDescriptions()
+        static std::vector<VkVertexInputAttributeDescription> GetAttributeDescriptions()
         {
-            std::array<VkVertexInputAttributeDescription, 2> attrs{};
+            std::vector<VkVertexInputAttributeDescription> attrs{2};
             attrs[0].binding = 0;
             attrs[0].location = 0;
             attrs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
