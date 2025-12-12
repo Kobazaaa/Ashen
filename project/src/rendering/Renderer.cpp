@@ -112,9 +112,6 @@ ashen::Renderer::~Renderer()
     VkDevice device = m_pContext->GetDevice();
     vkDeviceWaitIdle(device);
 
-	vkFreeCommandBuffers(device, m_CommandPool, static_cast<uint32_t>(m_vCommandBuffers.size()), m_vCommandBuffers.data());
-	vkDestroyCommandPool(device, m_CommandPool, nullptr);
-
 	for (const auto& sem : m_vImageAvailableSemaphores) vkDestroySemaphore(device, sem, nullptr);
 	for (const auto& sem : m_vRenderFinishedSemaphores) vkDestroySemaphore(device, sem, nullptr);
 	for (const auto& fence : m_vInFlightFences) vkDestroyFence(device, fence, nullptr);
@@ -312,20 +309,12 @@ void ashen::Renderer::CreateCommandBuffers()
 {
     VkDevice device = m_pContext->GetDevice();
 
-    // -- Command Pool --
-    VkCommandPoolCreateInfo poolInfo{};
-    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    poolInfo.queueFamilyIndex = m_pContext->GetQueueIndex(vkb::QueueType::graphics);
-
-    vkCreateCommandPool(device, &poolInfo, nullptr, &m_CommandPool);
-
     // -- Command Buffers --
     m_vCommandBuffers.resize(m_pContext->GetSwapchainImageCount());
 
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.commandPool = m_CommandPool;
+    allocInfo.commandPool = m_pContext->GetCommandPool();
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandBufferCount = static_cast<uint32_t>(m_vCommandBuffers.size());
 

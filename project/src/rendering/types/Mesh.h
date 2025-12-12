@@ -5,6 +5,7 @@
 #include <vector>
 
 // -- Ashen Includes --
+#include "Buffer.h"
 #include "Vertex.h"
 #include "VulkanContext.h"
 
@@ -38,10 +39,8 @@ namespace ashen
         //--------------------------------------------------
 
     private:
-        VkBuffer m_VertexBuffer;
-        VkDeviceMemory m_VertexBufferMemory;
-        VkBuffer m_IndexBuffer;
-        VkDeviceMemory m_IndexBufferMemory;
+        Buffer m_VertexBuffer{};
+        Buffer m_IndexBuffer{};
 
         std::vector<Vertex> m_vVertices{};
         std::vector<uint32_t> m_vIndices{};

@@ -47,7 +47,6 @@ namespace ashen
         std::unique_ptr<Camera> m_pCamera;
 
         // Buffers
-        VkCommandPool m_CommandPool{};
         std::vector<VkCommandBuffer> m_vCommandBuffers;
 
         // Pipeline

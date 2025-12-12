@@ -11,6 +11,8 @@ set(SOURCES
 	"${SOURCE_DIR}/misc/Camera.cpp"
 	"${SOURCE_DIR}/misc/Window.cpp"
 	# rendering
+	"${SOURCE_DIR}/rendering/memory/Buffer.cpp"
+	"${SOURCE_DIR}/rendering/memory/Image.cpp"
 	"${SOURCE_DIR}/rendering/pipeline/Pipeline.cpp"
 	"${SOURCE_DIR}/rendering/types/Mesh.cpp"
 	"${SOURCE_DIR}/rendering/Renderer.cpp"
@@ -26,6 +28,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 	"${SOURCE_DIR}/helpers"
 	"${SOURCE_DIR}/misc"
 	"${SOURCE_DIR}/rendering"
+	"${SOURCE_DIR}/rendering/memory"
 	"${SOURCE_DIR}/rendering/pipeline"
 	"${SOURCE_DIR}/rendering/types"
 )

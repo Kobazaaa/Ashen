@@ -33,6 +33,7 @@ namespace ashen
         VkInstance GetInstance() const;
         VkDevice GetDevice() const;
         VkPhysicalDevice GetPhysicalDevice() const;
+        VkCommandPool GetCommandPool() const;
 
         //--------------------------------------------------
 		//    Queue Objects
@@ -63,6 +64,7 @@ namespace ashen
         vkb::Swapchain m_VkbSwapchain;
         VkSurfaceKHR m_Surface{};
         std::vector<VkImageView> m_vSwapchainImageViews{};
+        VkCommandPool m_CommandPool{};
     };
 }
 

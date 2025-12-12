@@ -80,10 +80,18 @@ ashen::VulkanContext::VulkanContext(Window* window)
     if (!swap_ret) throw std::runtime_error("Failed to create swapchain");
     m_VkbSwapchain = swap_ret.value();
 	m_vSwapchainImageViews = m_VkbSwapchain.get_image_views().value();
+
+	VkCommandPoolCreateInfo poolInfo{};
+	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+	poolInfo.queueFamilyIndex = GetQueueIndex(vkb::QueueType::graphics);
+
+	vkCreateCommandPool(m_VkbDevice.device, &poolInfo, nullptr, &m_CommandPool);
 }
 ashen::VulkanContext::~VulkanContext()
 {
 	vkDeviceWaitIdle(m_VkbDevice.device);
+	vkDestroyCommandPool(m_VkbDevice.device, m_CommandPool, nullptr);
 	m_VkbSwapchain.destroy_image_views(m_vSwapchainImageViews);
     vkb::destroy_swapchain(m_VkbSwapchain);
     vkb::destroy_device(m_VkbDevice);
@@ -97,6 +105,7 @@ ashen::VulkanContext::~VulkanContext()
 VkInstance ashen::VulkanContext::GetInstance()                     const   { return m_VkbInstance.instance; }
 VkDevice ashen::VulkanContext::GetDevice()                         const   { return m_VkbDevice.device; }
 VkPhysicalDevice ashen::VulkanContext::GetPhysicalDevice()         const   { return m_VkbPhysicalDevice.physical_device; }
+VkCommandPool ashen::VulkanContext::GetCommandPool()			   const   { return m_CommandPool; }
 
 //--------------------------------------------------
 //    Queue Objects
