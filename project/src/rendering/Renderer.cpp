@@ -8,8 +8,8 @@
 //--------------------------------------------------
 //    Constructor & Destructor
 //--------------------------------------------------
-ashen::Renderer::Renderer(VulkanContext* pContext, Window* pWindow)
-	: m_pContext(pContext)
+ashen::Renderer::Renderer(Window* pWindow)
+	: m_pContext(std::make_unique<VulkanContext>(pWindow))
 	, m_pWindow(pWindow)
 {
     m_pCamera = std::make_unique<Camera>(pWindow);

@@ -8,7 +8,6 @@
 #include "Camera.h"
 #include "Mesh.h"
 #include "Pipeline.h"
-#include "Vertex.h"
 #include "VulkanContext.h"
 #include "Window.h"
 
@@ -23,7 +22,7 @@ namespace ashen
         //--------------------------------------------------
 		//    Constructor & Destructor
 		//--------------------------------------------------
-        Renderer(VulkanContext* pContext, Window* pWindow);
+        Renderer(Window* pWindow);
         ~Renderer();
 
         Renderer(const Renderer& other) = delete;
@@ -43,7 +42,7 @@ namespace ashen
         void CreateCommandBuffers();
         void CreateSyncObjects();
 
-        VulkanContext* m_pContext;
+        std::unique_ptr<VulkanContext> m_pContext;
         Window* m_pWindow;
         std::unique_ptr<Camera> m_pCamera;
 
