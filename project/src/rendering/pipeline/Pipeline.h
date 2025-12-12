@@ -38,6 +38,11 @@ namespace ashen
 		Pipeline& operator=(Pipeline&& other) noexcept = delete;
 
 		//--------------------------------------------------
+		//    Functionality
+		//--------------------------------------------------
+		void Bind(VkCommandBuffer cmd) const;
+
+		//--------------------------------------------------
 		//    Accessors & Mutators
 		//--------------------------------------------------
 		const VkPipeline& GetPipelineHandle() const;

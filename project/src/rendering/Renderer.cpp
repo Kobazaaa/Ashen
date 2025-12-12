@@ -18,7 +18,7 @@ ashen::Renderer::Renderer(VulkanContext* pContext, Window* pWindow)
 
     constexpr float VERTEX_COLOR_CHANNEL = 0.5f;
     constexpr glm::vec3 VERTEX_COLOR = { VERTEX_COLOR_CHANNEL , VERTEX_COLOR_CHANNEL , VERTEX_COLOR_CHANNEL };
-    m_pMesh = std::make_unique<Mesh>(*m_pContext,
+    m_pMeshFloor = std::make_unique<Mesh>(*m_pContext,
         std::vector
         {
 			Vertex{.pos = { 1000.f, -1.f,  1000.f}, .color = VERTEX_COLOR},
@@ -31,7 +31,20 @@ ashen::Renderer::Renderer(VulkanContext* pContext, Window* pWindow)
         0, 1, 2, 0, 2, 3
     });
 
-    m_pPipeline = std::make_unique<Pipeline>(*m_pContext, 
+    m_pMeshSky = std::make_unique<Mesh>(*m_pContext,
+        std::vector
+        {
+            Vertex{.pos = { 100.f, 10.f,  100.f}, .color = VERTEX_COLOR / 2.f},
+            Vertex{.pos = { 100.f, 10.f, -100.f}, .color = VERTEX_COLOR / 2.f},
+            Vertex{.pos = {-100.f, 10.f, -100.f}, .color = VERTEX_COLOR / 2.f},
+            Vertex{.pos = {-100.f, 10.f,  100.f}, .color = VERTEX_COLOR / 2.f}
+        },
+        std::vector<uint32_t>
+    {
+        0, 1, 2, 0, 2, 3
+    });
+
+    m_pPipelineDefault = std::make_unique<Pipeline>(*m_pContext, 
         std::vector{
         VkPushConstantRange{
 				.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
@@ -42,6 +55,17 @@ ashen::Renderer::Renderer(VulkanContext* pContext, Window* pWindow)
         std::vector<VkDescriptorSetLayout>{
         }, 
         "shaders/triangle.vert.spv", "shaders/triangle.frag.spv");
+    m_pPipelineSky = std::make_unique<Pipeline>(*m_pContext, 
+        std::vector{
+        VkPushConstantRange{
+				.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+				.offset = 0u,
+				.size = sizeof(TriangleShaderPCV)
+			}
+        }, 
+        std::vector<VkDescriptorSetLayout>{
+        }, 
+        "shaders/SkyFromSpace.vert.spv", "shaders/SkyFromSpace.frag.spv");
 
 	CreateCommandBuffers();
 }
@@ -199,31 +223,22 @@ void ashen::Renderer::RecordCommandBuffer(uint32_t imageIndex)
 
     vkCmdBeginRendering(cmd, &renderingInfo);
 
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pPipeline->GetPipelineHandle());
-
-    VkViewport viewport{};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = static_cast<float>(m_pContext->GetSwapchainExtent().width);
-    viewport.height = static_cast<float>(m_pContext->GetSwapchainExtent().height);
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-
-    VkRect2D scissor{};
-    scissor.offset = { 0, 0 };
-    scissor.extent = m_pContext->GetSwapchainExtent();
-
-    vkCmdSetViewport(cmd, 0, 1, &viewport);
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
-
-    m_pMesh->Bind(cmd);
+    m_pPipelineDefault->Bind(cmd);
+    m_pMeshFloor->Bind(cmd);
 
     TriangleShaderPCV pcvs{};
     pcvs.view = m_pCamera->GetViewMatrix();
     pcvs.proj = m_pCamera->GetProjectionMatrix();
-    vkCmdPushConstants(cmd, m_pPipeline->GetLayoutHandle(), VK_SHADER_STAGE_VERTEX_BIT, 0, 2 * sizeof(glm::mat4), &pcvs);
+    vkCmdPushConstants(cmd, m_pPipelineDefault->GetLayoutHandle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(TriangleShaderPCV), &pcvs);
 
-    m_pMesh->Draw(cmd);
+    m_pMeshFloor->Draw(cmd);
+
+    m_pPipelineSky->Bind(cmd);
+    m_pMeshSky->Bind(cmd);
+
+    vkCmdPushConstants(cmd, m_pPipelineSky->GetLayoutHandle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(TriangleShaderPCV), &pcvs);
+
+    m_pMeshSky->Draw(cmd);
 
     vkCmdEndRendering(cmd);
 

@@ -52,7 +52,8 @@ namespace ashen
         std::vector<VkCommandBuffer> m_vCommandBuffers;
 
         // Pipeline
-        std::unique_ptr<Pipeline> m_pPipeline{};
+        std::unique_ptr<Pipeline> m_pPipelineDefault{};
+        std::unique_ptr<Pipeline> m_pPipelineSky{};
 
         // Sync
         std::vector<VkSemaphore> m_vImageAvailableSemaphores;
@@ -61,7 +62,8 @@ namespace ashen
         size_t m_CurrentFrame = 0;
 
         // Vertices
-        std::unique_ptr<Mesh> m_pMesh;
+        std::unique_ptr<Mesh> m_pMeshFloor;
+        std::unique_ptr<Mesh> m_pMeshSky;
     };
 
 }

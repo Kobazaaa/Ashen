@@ -105,7 +105,7 @@ ashen::Pipeline::Pipeline(VulkanContext& context,
     rasterizer.rasterizerDiscardEnable = VK_FALSE;
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer.lineWidth = 1.0f;
-    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+    rasterizer.cullMode = VK_CULL_MODE_NONE;
     rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
 
@@ -173,6 +173,29 @@ ashen::Pipeline::~Pipeline()
 	vkDestroyPipeline(m_pContext->GetDevice(), m_Pipeline, nullptr);
 }
 
+
+//--------------------------------------------------
+//    Functionality
+//--------------------------------------------------
+void ashen::Pipeline::Bind(VkCommandBuffer cmd) const
+{
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline);
+
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = static_cast<float>(m_pContext->GetSwapchainExtent().width);
+    viewport.height = static_cast<float>(m_pContext->GetSwapchainExtent().height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+
+    VkRect2D scissor{};
+    scissor.offset = { 0, 0 };
+    scissor.extent = m_pContext->GetSwapchainExtent();
+
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+}
 
 //--------------------------------------------------
 //    Accessors & Mutators
