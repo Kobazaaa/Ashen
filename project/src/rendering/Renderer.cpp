@@ -3,6 +3,7 @@
 
 // -- Ashen Includes --
 #include "Renderer.h"
+#include "Image.h"
 #include "Types.h"
 
 //--------------------------------------------------
@@ -44,11 +45,14 @@ ashen::Renderer::Renderer(Window* pWindow)
         0, 1, 2, 0, 2, 3
     });
 
+    CreateDepthResources(m_pContext->GetSwapchainExtent());
+
     VkPipelineRenderingCreateInfo pipelineRenderingInfo{};
     pipelineRenderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
     pipelineRenderingInfo.colorAttachmentCount = 1;
     VkFormat swapchainFormat = m_pContext->GetSwapchainFormat();
     pipelineRenderingInfo.pColorAttachmentFormats = &swapchainFormat;
+	pipelineRenderingInfo.depthAttachmentFormat = m_vDepthImages.front().GetFormat();
 
     PipelineBuilder pipelineBuilder{ *m_pContext };
     pipelineBuilder
@@ -66,9 +70,9 @@ ashen::Renderer::Renderer(Window* pWindow)
 		.AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT)
 		.AddDynamicState(VK_DYNAMIC_STATE_SCISSOR)
 
-		.SetDepthTest(VK_FALSE, VK_FALSE, VK_COMPARE_OP_NEVER)
+		.SetDepthTest(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS)
 
-		.SetCullMode(VK_CULL_MODE_BACK_BIT)
+		.SetCullMode(VK_CULL_MODE_NONE)
 		.SetFrontFace(VK_FRONT_FACE_CLOCKWISE)
 		.SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
 		.SetPolygonMode(VK_POLYGON_MODE_FILL)
@@ -94,7 +98,7 @@ ashen::Renderer::Renderer(Window* pWindow)
         .AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT)
         .AddDynamicState(VK_DYNAMIC_STATE_SCISSOR)
 
-        .SetDepthTest(VK_FALSE, VK_FALSE, VK_COMPARE_OP_NEVER)
+        .SetDepthTest(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS)
 
         .SetCullMode(VK_CULL_MODE_NONE)
         .SetFrontFace(VK_FRONT_FACE_CLOCKWISE)
@@ -188,7 +192,29 @@ void ashen::Renderer::Render()
 //--------------------------------------------------
 //    Helpers
 //--------------------------------------------------
-void ashen::Renderer::OnResize() const
+void ashen::Renderer::CreateDepthResources(VkExtent2D extent)
+{
+    m_vDepthImages.clear();
+    m_vDepthImages.resize(m_pContext->GetSwapchainImageCount());
+    for (Image& image : m_vDepthImages)
+    {
+        const auto format = Image::FindSupportedFormat(m_pContext->GetPhysicalDevice(),
+            { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
+            VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+
+        ImageBuilder imageBuilder{ *m_pContext };
+        imageBuilder
+            .SetWidth(extent.width)
+            .SetHeight(extent.height)
+            .SetTiling(VK_IMAGE_TILING_OPTIMAL)
+			.SetAspectFlags(VK_IMAGE_ASPECT_DEPTH_BIT)
+			.SetViewType(VK_IMAGE_VIEW_TYPE_2D)
+            .SetFormat(format)
+            .SetUsageFlags(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
+            .Build(image);
+    }
+}
+void ashen::Renderer::OnResize()
 {
     auto size = m_pWindow->GetFramebufferSize();
     while (size.x == 0 || size.y == 0)
@@ -198,6 +224,7 @@ void ashen::Renderer::OnResize() const
     }
 
     m_pContext->RebuildSwapchain(size);
+    CreateDepthResources(m_pContext->GetSwapchainExtent());
     m_pCamera->AspectRatio = m_pWindow->GetAspectRatio();
 }
 void ashen::Renderer::RecordCommandBuffer(uint32_t imageIndex)
@@ -246,6 +273,14 @@ void ashen::Renderer::RecordCommandBuffer(uint32_t imageIndex)
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     colorAttachment.clearValue.color = { {0.1f, 0.2f, 0.3f, 1.0f} };
 
+    VkRenderingAttachmentInfo depthAttachment{};
+    depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    depthAttachment.imageView = m_vDepthImages[m_CurrentFrame].GetView();
+    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.clearValue.depthStencil = { 1.0f, 0 };
+
     VkRenderingInfo renderingInfo{};
     renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     renderingInfo.renderArea.offset = { 0, 0 };
@@ -253,6 +288,7 @@ void ashen::Renderer::RecordCommandBuffer(uint32_t imageIndex)
     renderingInfo.layerCount = 1;
     renderingInfo.colorAttachmentCount = 1;
     renderingInfo.pColorAttachments = &colorAttachment;
+    renderingInfo.pDepthAttachment = &depthAttachment;
 
     vkCmdBeginRendering(cmd, &renderingInfo);
 

@@ -37,7 +37,8 @@ namespace ashen
         void Render();
 
     private:
-        void OnResize() const;
+        void CreateDepthResources(VkExtent2D extent);
+        void OnResize();
         void RecordCommandBuffer(uint32_t imageIndex);
         void CreateCommandBuffers();
         void CreateSyncObjects();
@@ -48,6 +49,7 @@ namespace ashen
 
         // Buffers
         std::vector<VkCommandBuffer> m_vCommandBuffers;
+        std::vector<Image> m_vDepthImages;
 
         // Pipeline
         Pipeline m_PipelineDefault{};

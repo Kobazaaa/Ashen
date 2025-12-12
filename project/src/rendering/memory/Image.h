@@ -28,9 +28,9 @@ namespace ashen
 		~Image();
 
 		Image(const Image& other) = delete;
-		Image(Image&& other) noexcept = delete;
+		Image(Image&& other) noexcept = default;
 		Image& operator=(const Image& other) = delete;
-		Image& operator=(Image&& other) noexcept = delete;
+		Image& operator=(Image&& other) noexcept = default;
 
 		//--------------------------------------------------
 		//    Helpers

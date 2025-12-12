@@ -267,6 +267,34 @@ void ashen::ImageBuilder::Build(Image& image) const
 			throw std::runtime_error("Failed to create Image!");
 	}
 
+	VkMemoryRequirements memRequirements;
+	vkGetImageMemoryRequirements(m_pContext->GetDevice(), image.m_Image, &memRequirements);
+
+	VkMemoryAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	allocInfo.allocationSize = memRequirements.size;
+
+	VkPhysicalDeviceMemoryProperties memProperties;
+	vkGetPhysicalDeviceMemoryProperties(m_pContext->GetPhysicalDevice(), &memProperties);
+	uint32_t outcome = 0;
+	VkMemoryPropertyFlags prop = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+	for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
+	{
+		if ((memRequirements.memoryTypeBits & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & prop) == prop)
+		{
+			outcome = i;
+			break;
+		}
+	}
+	allocInfo.memoryTypeIndex = outcome;
+
+	if (vkAllocateMemory(m_pContext->GetDevice(), &allocInfo, nullptr, &image.m_ImageMemory) != VK_SUCCESS)
+		throw std::runtime_error("Failed to allocate Vertex Buffer Memory!");
+
+	vkBindImageMemory(m_pContext->GetDevice(), image.m_Image, image.m_ImageMemory, 0);
+
+
+
 	if (m_UseInitialData)
 	{
 		Buffer stagingBuffer;
@@ -282,14 +310,14 @@ void ashen::ImageBuilder::Build(Image& image) const
 		memcpy(data, m_pData, m_InitDataSize);
 		vkUnmapMemory(m_pContext->GetDevice(), stagingBuffer.GetMemoryHandle());
 
-		VkCommandBufferAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		allocInfo.commandPool = m_pContext->GetCommandPool();
-		allocInfo.commandBufferCount = 1;
+		VkCommandBufferAllocateInfo allocInfoCmd{};
+		allocInfoCmd.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		allocInfoCmd.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		allocInfoCmd.commandPool = m_pContext->GetCommandPool();
+		allocInfoCmd.commandBufferCount = 1;
 
 		VkCommandBuffer commandBuffer;
-		vkAllocateCommandBuffers(m_pContext->GetDevice(), &allocInfo, &commandBuffer);
+		vkAllocateCommandBuffers(m_pContext->GetDevice(), &allocInfoCmd, &commandBuffer);
 
 		VkCommandBufferBeginInfo beginInfo{};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
