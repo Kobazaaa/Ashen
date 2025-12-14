@@ -15,36 +15,13 @@ ashen::Renderer::Renderer(Window* pWindow)
 
 	CreateSyncObjects();
 
-    constexpr float VERTEX_COLOR_CHANNEL = 0.5f;
-    constexpr glm::vec3 VERTEX_COLOR = { VERTEX_COLOR_CHANNEL , VERTEX_COLOR_CHANNEL , VERTEX_COLOR_CHANNEL };
-    m_pMeshFloor = std::make_unique<Mesh>(*m_pContext,
-        std::vector
-        {
-			Vertex{.pos = { 1000.f, -1.f,  1000.f}, .color = VERTEX_COLOR},
-            Vertex{.pos = { 1000.f, -1.f, -1000.f}, .color = VERTEX_COLOR},
-            Vertex{.pos = {-1000.f, -1.f, -1000.f}, .color = VERTEX_COLOR},
-            Vertex{.pos = {-1000.f, -1.f,  1000.f}, .color = VERTEX_COLOR}
-        },
-        std::vector<uint32_t>
-    {
-        0, 1, 2, 0, 2, 3
-    });
+    CreatePlaneMesh();
+    CreateSkyMesh();
 
-    m_pMeshSky = std::make_unique<Mesh>(*m_pContext,
-        std::vector
-        {
-            Vertex{.pos = { 100.f, 10.f,  100.f}, .color = VERTEX_COLOR / 2.f},
-            Vertex{.pos = { 100.f, 10.f, -100.f}, .color = VERTEX_COLOR / 2.f},
-            Vertex{.pos = {-100.f, 10.f, -100.f}, .color = VERTEX_COLOR / 2.f},
-            Vertex{.pos = {-100.f, 10.f,  100.f}, .color = VERTEX_COLOR / 2.f}
-        },
-        std::vector<uint32_t>
-    {
-        0, 1, 2, 0, 2, 3
-    });
+    const auto count = m_pContext->GetSwapchainImageCount();
+    m_vUBO_SFS_VS = { *m_pContext, count };
 
     CreateDepthResources(m_pContext->GetSwapchainExtent());
-    CreateUBOs();
     CreateDescriptorSets();
 
     CreatePipelines();
@@ -69,7 +46,7 @@ void ashen::Renderer::Update()
     m_pCamera->Update();
 
     float data = Timer::GetTotalTimeSeconds();
-    m_vUBO[m_CurrentFrame].MapData(&data, sizeof(float));
+    m_vUBO_SFS_VS[m_CurrentFrame].MapData(&data, sizeof(SkyFromSpaceVS));
 }
 void ashen::Renderer::Render()
 {
@@ -134,6 +111,82 @@ void ashen::Renderer::Render()
 //--------------------------------------------------
 //    Helpers
 //--------------------------------------------------
+// -- Meshes --
+void ashen::Renderer::CreatePlaneMesh()
+{
+    constexpr float VERTEX_COLOR_CHANNEL = 0.5f;
+    constexpr glm::vec3 VERTEX_COLOR = { VERTEX_COLOR_CHANNEL , VERTEX_COLOR_CHANNEL , VERTEX_COLOR_CHANNEL };
+    m_pMeshFloor = std::make_unique<Mesh>(*m_pContext,
+        std::vector
+        {
+            Vertex{.pos = { 1000.f, -1.f,  1000.f}, .color = VERTEX_COLOR},
+            Vertex{.pos = { 1000.f, -1.f, -1000.f}, .color = VERTEX_COLOR},
+            Vertex{.pos = {-1000.f, -1.f, -1000.f}, .color = VERTEX_COLOR},
+            Vertex{.pos = {-1000.f, -1.f,  1000.f}, .color = VERTEX_COLOR}
+        },
+        std::vector<uint32_t>
+    {
+        0, 1, 2, 0, 2, 3
+    });
+}
+void ashen::Renderer::CreateSkyMesh()
+{
+    // -- Data --
+    constexpr float radius = 100.f;
+    constexpr int segmentsLat = 16;
+    constexpr int segmentsLon = 32;
+    constexpr float VERTEX_COLOR_CHANNEL = 0.5f;
+    constexpr glm::vec3 VERTEX_COLOR = { VERTEX_COLOR_CHANNEL , VERTEX_COLOR_CHANNEL , VERTEX_COLOR_CHANNEL };
+
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
+
+    // -- Vertices --
+    for (int lat{}; lat <= segmentsLat; ++lat) 
+    {
+        const float theta = glm::half_pi<float>() * static_cast<float>(lat) / static_cast<float>(segmentsLat);
+        const float sinTheta = sin(theta);
+        const float cosTheta = cos(theta);
+
+        for (int lon{}; lon <= segmentsLon; ++lon)
+        {
+            const float phi = glm::two_pi<float>() * static_cast<float>(lon) / static_cast<float>(segmentsLon);
+            const float sinPhi = sin(phi);
+            const float cosPhi = cos(phi);
+
+            const glm::vec3 pos = radius * glm::vec3(cosPhi * sinTheta, cosTheta, sinPhi * sinTheta);
+            vertices.push_back(
+                {
+                	.pos = pos,
+                	.color = VERTEX_COLOR
+                });
+        }
+    }
+
+    // -- Indices --
+    for (int lat{}; lat < segmentsLat; ++lat) 
+    {
+        for (int lon{}; lon < segmentsLon; ++lon) 
+        {
+            const int current = lat * (segmentsLon + 1) + lon;
+            const int next = current + segmentsLon + 1;
+
+            indices.push_back(current);
+            indices.push_back(next);
+            indices.push_back(current + 1);
+
+            indices.push_back(current + 1);
+            indices.push_back(next);
+            indices.push_back(next + 1);
+        }
+    }
+
+    m_pMeshSky = std::make_unique<Mesh>(*m_pContext,
+        vertices,
+        indices
+    );
+}
+
 // -- Creation --
 void ashen::Renderer::CreatePipelines()
 {
@@ -151,7 +204,6 @@ void ashen::Renderer::CreatePipelines()
 	        .SetOffset(0)
 	        .SetSize(sizeof(TriangleShaderPCV))
 	        .EndRange()
-        .AddDescriptorSet(m_vDescriptorSets.front())
         .SetVertexAttributeDesc(Vertex::GetAttributeDescriptions())
         .SetVertexBindingDesc(Vertex::GetBindingDescription())
 
@@ -180,6 +232,7 @@ void ashen::Renderer::CreatePipelines()
 	        .SetOffset(0)
 	        .SetSize(sizeof(TriangleShaderPCV))
 	        .EndRange()
+        .AddDescriptorSet(m_vDescriptorSets.front())
         .SetVertexAttributeDesc(Vertex::GetAttributeDescriptions())
         .SetVertexBindingDesc(Vertex::GetBindingDescription())
 
@@ -217,32 +270,19 @@ void ashen::Renderer::CreateDescriptorSets()
         DescriptorSetAllocator allocator{ *m_pContext };
         allocator
             .NewLayoutBinding()
-            .SetType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-            .SetCount(1)
-            .SetShaderStages(VK_SHADER_STAGE_VERTEX_BIT)
-            .EndLayoutBinding()
+	            .SetType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+	            .SetCount(1)
+	            .SetShaderStages(VK_SHADER_STAGE_VERTEX_BIT)
+	            .EndLayoutBinding()
             .Allocate(m_DescriptorPool, set);
 
         DescriptorSetWriter writer{ *m_pContext };
         writer
-    		.AddBufferInfo(m_vUBO[idx], 0, sizeof(float))
+    		.AddBufferInfo(m_vUBO_SFS_VS[idx], 0, sizeof(SkyFromSpaceVS))
             .WriteBuffers(set, 0)
     		.Execute();
 
 		++idx;
-    }
-}
-void ashen::Renderer::CreateUBOs()
-{
-    m_vUBO.resize(m_pContext->GetSwapchainImageCount());
-    for (auto& ubo : m_vUBO)
-    {
-        BufferAllocator builder{ *m_pContext };
-        builder
-            .SetUsage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
-            .HostAccess(true)
-            .SetSize(sizeof(float))
-            .Allocate(ubo);
     }
 }
 void ashen::Renderer::CreateDepthResources(VkExtent2D extent)
@@ -384,7 +424,6 @@ void ashen::Renderer::RenderFrame()
     VkCommandBuffer cmd = m_vCommandBuffers[m_CurrentFrame];
 
     m_PipelineDefault.Bind(cmd);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineDefault.GetLayoutHandle(), 0, 1, &m_vDescriptorSets[m_CurrentFrame].GetHandle(), 0, nullptr);
     m_pMeshFloor->Bind(cmd);
 
     TriangleShaderPCV pcvs{};
@@ -395,6 +434,7 @@ void ashen::Renderer::RenderFrame()
     m_pMeshFloor->Draw(cmd);
 
     m_PipelineSky.Bind(cmd);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineSky.GetLayoutHandle(), 0, 1, &m_vDescriptorSets[m_CurrentFrame].GetHandle(), 0, nullptr);
     m_pMeshSky->Bind(cmd);
 
     vkCmdPushConstants(cmd, m_PipelineSky.GetLayoutHandle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(TriangleShaderPCV), &pcvs);

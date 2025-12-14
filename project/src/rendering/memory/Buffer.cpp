@@ -233,3 +233,4 @@ void ashen::BufferAllocator::Allocate(Buffer& buffer)
 		vkFreeCommandBuffers(m_pContext->GetDevice(), m_pContext->GetCommandPool(), 1, &commandBuffer);
 	}
 }
+

@@ -91,6 +91,45 @@ namespace ashen
 		VkMemoryPropertyFlags m_Properties{};
 		VkBufferCreateInfo m_CreateInfo{};
 	};
+
+	//? ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	//? ~~	  UBO	
+	//? ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	template<typename UBOType>
+	class UniformBufferGroup final
+	{
+	public:
+		//--------------------------------------------------
+		//    Constructor & Destructor
+		//--------------------------------------------------
+		explicit UniformBufferGroup() = default;
+		UniformBufferGroup(VulkanContext& pContext, uint32_t count)
+		{
+			m_vBuffers.resize(count);
+			for (auto& ubo : m_vBuffers)
+			{
+				BufferAllocator builder{ pContext };
+				builder
+					.SetUsage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
+					.HostAccess(true)
+					.SetSize(sizeof(UBOType))
+					.Allocate(ubo);
+			}
+		}
+
+
+		//--------------------------------------------------
+		//    Functionality
+		//--------------------------------------------------
+		Buffer& operator[](uint32_t idx)
+		{
+			return m_vBuffers[idx];
+		}
+
+
+	private:
+		std::vector<Buffer> m_vBuffers{};
+	};
 }
 
 #endif // ASHEN_BUFFER_H

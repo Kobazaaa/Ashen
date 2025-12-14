@@ -9,6 +9,7 @@
 #include "Descriptors.h"
 #include "Mesh.h"
 #include "Pipeline.h"
+#include "Types.h"
 #include "VulkanContext.h"
 #include "Window.h"
 
@@ -23,7 +24,7 @@ namespace ashen
         //--------------------------------------------------
 		//    Constructor & Destructor
 		//--------------------------------------------------
-        Renderer(Window* pWindow);
+        explicit Renderer(Window* pWindow);
         ~Renderer();
 
         Renderer(const Renderer& other) = delete;
@@ -38,10 +39,13 @@ namespace ashen
         void Render();
 
     private:
+        // -- Meshes --
+        void CreatePlaneMesh();
+        void CreateSkyMesh();
+
         // -- Creation --
         void CreatePipelines();
         void CreateDescriptorSets();
-        void CreateUBOs();
         void CreateDepthResources(VkExtent2D extent);
         void CreateCommandBuffers();
         void CreateSyncObjects();
@@ -61,7 +65,7 @@ namespace ashen
         DescriptorPool m_DescriptorPool{};
         std::vector<DescriptorSet> m_vDescriptorSets;
 
-        std::vector<Buffer> m_vUBO{};
+        UniformBufferGroup<SkyFromSpaceVS> m_vUBO_SFS_VS{};
 
         std::vector<VkCommandBuffer> m_vCommandBuffers;
         std::vector<Image> m_vDepthImages;
@@ -74,7 +78,7 @@ namespace ashen
         std::vector<VkSemaphore> m_vImageAvailableSemaphores;
         std::vector<VkSemaphore> m_vRenderFinishedSemaphores;
         std::vector<VkFence> m_vInFlightFences;
-        size_t m_CurrentFrame = 0;
+        uint32_t m_CurrentFrame = 0;
 
         // -- Meshes --
         std::unique_ptr<Mesh> m_pMeshFloor;
