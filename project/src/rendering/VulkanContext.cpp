@@ -75,7 +75,7 @@ ashen::VulkanContext::VulkanContext(Window* window)
         .set_desired_format(format)
         .set_desired_min_image_count(2)
         .set_desired_extent(size.x, size.y)
-		.set_desired_present_mode(VK_PRESENT_MODE_MAILBOX_KHR)
+		.set_desired_present_mode(VK_PRESENT_MODE_IMMEDIATE_KHR)
         .build();
     if (!swap_ret) throw std::runtime_error("Failed to create swapchain");
     m_VkbSwapchain = swap_ret.value();
