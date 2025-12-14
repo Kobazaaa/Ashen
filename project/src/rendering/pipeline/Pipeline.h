@@ -7,11 +7,12 @@
 // -- Standard Library --
 #include <vector>
 
+// -- Ashen Includes --
+#include "Descriptors.h"
+
 // -- Forward Declarations --
 namespace ashen
 {
-	class ShaderModule;
-	class DescriptorSetLayout;
 	class VulkanContext;
 }
 
@@ -47,8 +48,8 @@ namespace ashen
 
 	private:
 
-		VkPipeline m_Pipeline;
-		VkPipelineLayout m_Layout;
+		VkPipeline m_Pipeline{};
+		VkPipelineLayout m_Layout{};
 		VulkanContext* m_pContext{};
 
 		friend class PipelineBuilder;
@@ -99,6 +100,9 @@ namespace ashen
 		// -- Push Constants --
 		PushConstantRange& AddPushConstantRange();
 
+		// -- Descriptors --
+		PipelineBuilder& AddDescriptorSet(DescriptorSet& descriptorSetLayout);
+
 		// -- Shaders --
 		PipelineBuilder& SetVertexShader(const std::string& vs);
 		PipelineBuilder& SetFragmentShader(const std::string& fs);
@@ -140,6 +144,7 @@ namespace ashen
 		std::vector<VkSpecializationMapEntry >				m_vShaderSpecializationEntries;
 		std::vector<VkSpecializationInfo>					m_vSpecializationInfo;
 		std::vector<PushConstantRange>						m_vPushConstantRanges;
+		std::vector<VkDescriptorSetLayout>					m_vDescriptorLayouts;
 
 		VkShaderModule										m_VertexShader{};
 		VkShaderModule										m_FragmentShader{};

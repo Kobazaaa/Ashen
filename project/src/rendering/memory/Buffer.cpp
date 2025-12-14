@@ -90,6 +90,13 @@ void ashen::Buffer::CopyToImage(VkCommandBuffer cmd, const Image& dst, VkExtent3
 
 	vkCmdCopyBufferToImage(cmd, m_Buffer, dst.GetHandle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 }
+void ashen::Buffer::MapData(const void* pData, uint32_t size) const
+{
+	void* data = nullptr;
+	vkMapMemory(m_pContext->GetDevice(), m_Memory, 0, VK_WHOLE_SIZE, 0, &data);
+	memcpy(data, pData, size);
+	vkUnmapMemory(m_pContext->GetDevice(), m_Memory);
+}
 
 
 //? ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -173,11 +173,18 @@ ashen::PipelineBuilder::PipelineBuilder(VulkanContext& context)
 //--------------------------------------------------
 //    Build
 //--------------------------------------------------
-        // -- Push Constants --
+// -- Push Constants --
 ashen::PushConstantRange& ashen::PipelineBuilder::AddPushConstantRange()
 {
     m_vPushConstantRanges.push_back(PushConstantRange(*this));
     return m_vPushConstantRanges.back();
+}
+
+// -- Descriptors --
+ashen::PipelineBuilder& ashen::PipelineBuilder::AddDescriptorSet(DescriptorSet& descriptorSetLayout)
+{
+    m_vDescriptorLayouts.push_back(descriptorSetLayout.GetLayout());
+    return *this;
 }
 
 // -- Shaders --
@@ -294,13 +301,13 @@ void ashen::PipelineBuilder::Build(Pipeline& pipeline)
     // -- Layout --
     std::vector<VkPushConstantRange> vVulkanRanges{};
     vVulkanRanges.reserve(m_vPushConstantRanges.size());
-    for (auto range : m_vPushConstantRanges)
+    for (const auto& range : m_vPushConstantRanges)
         vVulkanRanges.push_back(range.m_Range);
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 0;
-    pipelineLayoutInfo.pSetLayouts = nullptr;
+    pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(m_vDescriptorLayouts.size());
+    pipelineLayoutInfo.pSetLayouts = m_vDescriptorLayouts.data();
     pipelineLayoutInfo.pushConstantRangeCount = static_cast<uint32_t>(vVulkanRanges.size());
     pipelineLayoutInfo.pPushConstantRanges = vVulkanRanges.empty() ? nullptr : vVulkanRanges.data();
 

@@ -68,7 +68,7 @@ namespace ashen
 		VkImageLayout m_CurrentLayout{ VK_IMAGE_LAYOUT_UNDEFINED };
 		VkImageCreateInfo m_ImageInfo{ };
 
-		VulkanContext* m_pContext;
+		VulkanContext* m_pContext{};
 
 		friend class ImageBuilder;
 	};

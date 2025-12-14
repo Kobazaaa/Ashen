@@ -29,9 +29,9 @@ namespace ashen
 		~Buffer();
 
 		Buffer(const Buffer& other) = delete;
-		Buffer(Buffer&& other) noexcept = delete;
+		Buffer(Buffer&& other) noexcept = default;
 		Buffer& operator=(const Buffer& other) = delete;
-		Buffer& operator=(Buffer&& other) noexcept = delete;
+		Buffer& operator=(Buffer&& other) noexcept = default;
 
 		//--------------------------------------------------
 		//    Accessors & Mutators
@@ -46,6 +46,7 @@ namespace ashen
 		void InsertBarrier(VkCommandBuffer cmd, VkAccessFlags2 srcAccess, VkPipelineStageFlags2 srcStage, VkAccessFlags2 dstAccess, VkPipelineStageFlags2 dstStage) const;
 		void CopyToBuffer(VkCommandBuffer cmd, const Buffer& dst, VkDeviceSize size, VkDeviceSize srcOffset, VkDeviceSize dstOffset) const;
 		void CopyToImage(VkCommandBuffer cmd, const Image& dst, VkExtent3D extent) const;
+		void MapData(const void* pData, uint32_t size) const;
 
 	private:
 		VkDeviceMemory m_Memory;

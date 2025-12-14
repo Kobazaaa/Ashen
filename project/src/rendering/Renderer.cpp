@@ -1,9 +1,7 @@
-// -- Standard Library --
-#include <fstream>
-
 // -- Ashen Includes --
 #include "Renderer.h"
 #include "Image.h"
+#include "Timer.h"
 #include "Types.h"
 
 //--------------------------------------------------
@@ -46,69 +44,10 @@ ashen::Renderer::Renderer(Window* pWindow)
     });
 
     CreateDepthResources(m_pContext->GetSwapchainExtent());
+    CreateUBOs();
+    CreateDescriptorSets();
 
-    VkPipelineRenderingCreateInfo pipelineRenderingInfo{};
-    pipelineRenderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-    pipelineRenderingInfo.colorAttachmentCount = 1;
-    VkFormat swapchainFormat = m_pContext->GetSwapchainFormat();
-    pipelineRenderingInfo.pColorAttachmentFormats = &swapchainFormat;
-	pipelineRenderingInfo.depthAttachmentFormat = m_vDepthImages.front().GetFormat();
-
-    PipelineBuilder pipelineBuilder{ *m_pContext };
-    pipelineBuilder
-		.AddPushConstantRange()
-			.SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
-			.SetOffset(0)
-			.SetSize(sizeof(TriangleShaderPCV))
-			.EndRange()
-		.SetVertexAttributeDesc(Vertex::GetAttributeDescriptions())
-		.SetVertexBindingDesc(Vertex::GetBindingDescription())
-
-		.SetVertexShader("shaders/triangle.vert.spv")
-		.SetFragmentShader("shaders/triangle.frag.spv")
-
-		.AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT)
-		.AddDynamicState(VK_DYNAMIC_STATE_SCISSOR)
-
-		.SetDepthTest(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS)
-
-		.SetCullMode(VK_CULL_MODE_NONE)
-		.SetFrontFace(VK_FRONT_FACE_CLOCKWISE)
-		.SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-		.SetPolygonMode(VK_POLYGON_MODE_FILL)
-
-        .SetupDynamicRendering(pipelineRenderingInfo)
-
-		.Build(m_PipelineDefault);
-		
-
-    pipelineBuilder = { *m_pContext };
-    pipelineBuilder
-        .AddPushConstantRange()
-        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
-        .SetOffset(0)
-        .SetSize(sizeof(TriangleShaderPCV))
-        .EndRange()
-        .SetVertexAttributeDesc(Vertex::GetAttributeDescriptions())
-        .SetVertexBindingDesc(Vertex::GetBindingDescription())
-
-        .SetVertexShader("shaders/SkyFromSpace.vert.spv")
-        .SetFragmentShader("shaders/SkyFromSpace.frag.spv")
-
-        .AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT)
-        .AddDynamicState(VK_DYNAMIC_STATE_SCISSOR)
-
-        .SetDepthTest(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS)
-
-        .SetCullMode(VK_CULL_MODE_NONE)
-        .SetFrontFace(VK_FRONT_FACE_CLOCKWISE)
-        .SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-        .SetPolygonMode(VK_POLYGON_MODE_FILL)
-
-        .SetupDynamicRendering(pipelineRenderingInfo)
-
-        .Build(m_PipelineSky);
-
+    CreatePipelines();
 	CreateCommandBuffers();
 }
 ashen::Renderer::~Renderer()
@@ -128,6 +67,9 @@ ashen::Renderer::~Renderer()
 void ashen::Renderer::Update()
 {
     m_pCamera->Update();
+
+    float data = Timer::GetTotalTimeSeconds();
+    m_vUBO[m_CurrentFrame].MapData(&data, sizeof(float));
 }
 void ashen::Renderer::Render()
 {
@@ -192,6 +134,117 @@ void ashen::Renderer::Render()
 //--------------------------------------------------
 //    Helpers
 //--------------------------------------------------
+// -- Creation --
+void ashen::Renderer::CreatePipelines()
+{
+    VkPipelineRenderingCreateInfo pipelineRenderingInfo{};
+    pipelineRenderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+    pipelineRenderingInfo.colorAttachmentCount = 1;
+    VkFormat swapchainFormat = m_pContext->GetSwapchainFormat();
+    pipelineRenderingInfo.pColorAttachmentFormats = &swapchainFormat;
+    pipelineRenderingInfo.depthAttachmentFormat = m_vDepthImages.front().GetFormat();
+
+    PipelineBuilder pipelineBuilder{ *m_pContext };
+    pipelineBuilder
+        .AddPushConstantRange()
+	        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
+	        .SetOffset(0)
+	        .SetSize(sizeof(TriangleShaderPCV))
+	        .EndRange()
+        .AddDescriptorSet(m_vDescriptorSets.front())
+        .SetVertexAttributeDesc(Vertex::GetAttributeDescriptions())
+        .SetVertexBindingDesc(Vertex::GetBindingDescription())
+
+        .SetVertexShader("shaders/triangle.vert.spv")
+        .SetFragmentShader("shaders/triangle.frag.spv")
+
+        .AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT)
+        .AddDynamicState(VK_DYNAMIC_STATE_SCISSOR)
+
+        .SetDepthTest(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS)
+
+        .SetCullMode(VK_CULL_MODE_NONE)
+        .SetFrontFace(VK_FRONT_FACE_CLOCKWISE)
+        .SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+        .SetPolygonMode(VK_POLYGON_MODE_FILL)
+
+        .SetupDynamicRendering(pipelineRenderingInfo)
+
+        .Build(m_PipelineDefault);
+
+
+    pipelineBuilder = { *m_pContext };
+    pipelineBuilder
+        .AddPushConstantRange()
+	        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
+	        .SetOffset(0)
+	        .SetSize(sizeof(TriangleShaderPCV))
+	        .EndRange()
+        .SetVertexAttributeDesc(Vertex::GetAttributeDescriptions())
+        .SetVertexBindingDesc(Vertex::GetBindingDescription())
+
+        .SetVertexShader("shaders/SkyFromSpace.vert.spv")
+        .SetFragmentShader("shaders/SkyFromSpace.frag.spv")
+
+        .AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT)
+        .AddDynamicState(VK_DYNAMIC_STATE_SCISSOR)
+
+        .SetDepthTest(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS)
+
+        .SetCullMode(VK_CULL_MODE_NONE)
+        .SetFrontFace(VK_FRONT_FACE_CLOCKWISE)
+        .SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+        .SetPolygonMode(VK_POLYGON_MODE_FILL)
+
+        .SetupDynamicRendering(pipelineRenderingInfo)
+
+        .Build(m_PipelineSky);
+}
+void ashen::Renderer::CreateDescriptorSets()
+{
+    DescriptorPoolBuilder builder{ *m_pContext };
+    auto count = m_pContext->GetSwapchainImageCount();
+    builder
+        .AddPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, count)
+        .SetMaxSets(count)
+        .SetFlags(0)
+        .Build(m_DescriptorPool);
+
+    m_vDescriptorSets.resize(count);
+    int idx = 0;
+    for (auto& set : m_vDescriptorSets)
+    {
+        DescriptorSetAllocator allocator{ *m_pContext };
+        allocator
+            .NewLayoutBinding()
+            .SetType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+            .SetCount(1)
+            .SetShaderStages(VK_SHADER_STAGE_VERTEX_BIT)
+            .EndLayoutBinding()
+            .Allocate(m_DescriptorPool, set);
+
+        DescriptorSetWriter writer{ *m_pContext };
+        writer
+    		.AddBufferInfo(m_vUBO[idx], 0, sizeof(float))
+            .WriteBuffers(set, 0)
+    		.Execute();
+
+		++idx;
+    }
+}
+void ashen::Renderer::CreateUBOs()
+{
+    m_vUBO.resize(m_pContext->GetSwapchainImageCount());
+    for (auto& ubo : m_vUBO)
+    {
+        BufferAllocator builder{ *m_pContext };
+        builder
+            .SetUsage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
+            .HostAccess(true)
+            .SetSize(sizeof(float))
+            .Allocate(ubo);
+    }
+}
 void ashen::Renderer::CreateDepthResources(VkExtent2D extent)
 {
     m_vDepthImages.clear();
@@ -214,133 +267,6 @@ void ashen::Renderer::CreateDepthResources(VkExtent2D extent)
             .Build(image);
     }
 }
-void ashen::Renderer::OnResize()
-{
-    auto size = m_pWindow->GetFramebufferSize();
-    while (size.x == 0 || size.y == 0)
-    {
-        size = m_pWindow->GetFramebufferSize();
-        m_pWindow->PollEvents();
-    }
-
-    m_pContext->RebuildSwapchain(size);
-    CreateDepthResources(m_pContext->GetSwapchainExtent());
-    m_pCamera->AspectRatio = m_pWindow->GetAspectRatio();
-}
-void ashen::Renderer::RecordCommandBuffer(uint32_t imageIndex)
-{
-    VkCommandBuffer cmd = m_vCommandBuffers[m_CurrentFrame];
-    vkResetCommandBuffer(cmd, 0);
-
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-    if (vkBeginCommandBuffer(cmd, &beginInfo) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to begin command buffer!");
-    }
-
-    VkImageMemoryBarrier presentBarrier{};
-    presentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    presentBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    presentBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    presentBarrier.srcAccessMask = VK_ACCESS_NONE;
-    presentBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    presentBarrier.image = m_pContext->GetSwapchainImages()[imageIndex];
-    presentBarrier.subresourceRange = 
-    {
-	    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-	    .baseMipLevel = 0, .levelCount = 1,
-	    .baseArrayLayer = 0, .layerCount = 1
-    };
-
-    vkCmdPipelineBarrier(
-        cmd,
-        VK_PIPELINE_STAGE_NONE,
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        0,
-        0, nullptr,
-        0, nullptr,
-        1, &presentBarrier
-    );
-
-
-    // Dynamic rendering info
-    VkRenderingAttachmentInfo colorAttachment{};
-    colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    colorAttachment.imageView = m_pContext->GetSwapchainImageViews()[imageIndex];
-    colorAttachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
-    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachment.clearValue.color = { {0.1f, 0.2f, 0.3f, 1.0f} };
-
-    VkRenderingAttachmentInfo depthAttachment{};
-    depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    depthAttachment.imageView = m_vDepthImages[m_CurrentFrame].GetView();
-    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
-    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depthAttachment.clearValue.depthStencil = { 1.0f, 0 };
-
-    VkRenderingInfo renderingInfo{};
-    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-    renderingInfo.renderArea.offset = { 0, 0 };
-    renderingInfo.renderArea.extent = m_pContext->GetSwapchainExtent();
-    renderingInfo.layerCount = 1;
-    renderingInfo.colorAttachmentCount = 1;
-    renderingInfo.pColorAttachments = &colorAttachment;
-    renderingInfo.pDepthAttachment = &depthAttachment;
-
-    vkCmdBeginRendering(cmd, &renderingInfo);
-
-    m_PipelineDefault.Bind(cmd);
-    m_pMeshFloor->Bind(cmd);
-
-    TriangleShaderPCV pcvs{};
-    pcvs.view = m_pCamera->GetViewMatrix();
-    pcvs.proj = m_pCamera->GetProjectionMatrix();
-    vkCmdPushConstants(cmd, m_PipelineDefault.GetLayoutHandle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(TriangleShaderPCV), &pcvs);
-
-    m_pMeshFloor->Draw(cmd);
-
-    m_PipelineSky.Bind(cmd);
-    m_pMeshSky->Bind(cmd);
-
-    vkCmdPushConstants(cmd, m_PipelineSky.GetLayoutHandle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(TriangleShaderPCV), &pcvs);
-
-    m_pMeshSky->Draw(cmd);
-
-    vkCmdEndRendering(cmd);
-
-    presentBarrier = {};
-    presentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    presentBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    presentBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-    presentBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    presentBarrier.dstAccessMask = 0;
-    presentBarrier.image = m_pContext->GetSwapchainImages()[imageIndex];
-    presentBarrier.subresourceRange = 
-    {
-	    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-	    .baseMipLevel = 0, .levelCount = 1,
-	    .baseArrayLayer = 0, .layerCount = 1
-    };
-
-    vkCmdPipelineBarrier(
-        cmd,
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-        0,
-        0, nullptr,
-        0, nullptr,
-        1, &presentBarrier
-    );
-
-
-    if (vkEndCommandBuffer(cmd) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to record command buffer!");
-    }
-}
-
 void ashen::Renderer::CreateCommandBuffers()
 {
     VkDevice device = m_pContext->GetDevice();
@@ -385,4 +311,147 @@ void ashen::Renderer::CreateSyncObjects()
             throw std::runtime_error("Failed to create sync objects");
         }
     }
+}
+
+// -- Frame --
+void ashen::Renderer::SetupFrame(uint32_t imageIndex) const
+{
+    VkCommandBuffer cmd = m_vCommandBuffers[m_CurrentFrame];
+    vkResetCommandBuffer(cmd, 0);
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+    if (vkBeginCommandBuffer(cmd, &beginInfo) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to begin command buffer!");
+    }
+
+    VkImageMemoryBarrier presentBarrier{};
+    presentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    presentBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    presentBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    presentBarrier.srcAccessMask = VK_ACCESS_NONE;
+    presentBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    presentBarrier.image = m_pContext->GetSwapchainImages()[imageIndex];
+    presentBarrier.subresourceRange =
+    {
+        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        .baseMipLevel = 0, .levelCount = 1,
+        .baseArrayLayer = 0, .layerCount = 1
+    };
+
+    vkCmdPipelineBarrier(
+        cmd,
+        VK_PIPELINE_STAGE_NONE,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        0,
+        0, nullptr,
+        0, nullptr,
+        1, &presentBarrier
+    );
+
+
+    // Dynamic rendering info
+    VkRenderingAttachmentInfo colorAttachment{};
+    colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    colorAttachment.imageView = m_pContext->GetSwapchainImageViews()[imageIndex];
+    colorAttachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachment.clearValue.color = { {0.1f, 0.2f, 0.3f, 1.0f} };
+
+    VkRenderingAttachmentInfo depthAttachment{};
+    depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    depthAttachment.imageView = m_vDepthImages[m_CurrentFrame].GetView();
+    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.clearValue.depthStencil = { 1.0f, 0 };
+
+    VkRenderingInfo renderingInfo{};
+    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    renderingInfo.renderArea.offset = { 0, 0 };
+    renderingInfo.renderArea.extent = m_pContext->GetSwapchainExtent();
+    renderingInfo.layerCount = 1;
+    renderingInfo.colorAttachmentCount = 1;
+    renderingInfo.pColorAttachments = &colorAttachment;
+    renderingInfo.pDepthAttachment = &depthAttachment;
+
+    vkCmdBeginRendering(cmd, &renderingInfo);
+}
+void ashen::Renderer::RenderFrame()
+{
+    VkCommandBuffer cmd = m_vCommandBuffers[m_CurrentFrame];
+
+    m_PipelineDefault.Bind(cmd);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineDefault.GetLayoutHandle(), 0, 1, &m_vDescriptorSets[m_CurrentFrame].GetHandle(), 0, nullptr);
+    m_pMeshFloor->Bind(cmd);
+
+    TriangleShaderPCV pcvs{};
+    pcvs.view = m_pCamera->GetViewMatrix();
+    pcvs.proj = m_pCamera->GetProjectionMatrix();
+    vkCmdPushConstants(cmd, m_PipelineDefault.GetLayoutHandle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(TriangleShaderPCV), &pcvs);
+
+    m_pMeshFloor->Draw(cmd);
+
+    m_PipelineSky.Bind(cmd);
+    m_pMeshSky->Bind(cmd);
+
+    vkCmdPushConstants(cmd, m_PipelineSky.GetLayoutHandle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(TriangleShaderPCV), &pcvs);
+
+    m_pMeshSky->Draw(cmd);
+}
+void ashen::Renderer::EndFrame(uint32_t imageIndex) const
+{
+    VkCommandBuffer cmd = m_vCommandBuffers[m_CurrentFrame];
+    vkCmdEndRendering(cmd);
+
+    VkImageMemoryBarrier presentBarrier{};
+	presentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    presentBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    presentBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    presentBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    presentBarrier.dstAccessMask = 0;
+    presentBarrier.image = m_pContext->GetSwapchainImages()[imageIndex];
+    presentBarrier.subresourceRange =
+    {
+        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        .baseMipLevel = 0, .levelCount = 1,
+        .baseArrayLayer = 0, .layerCount = 1
+    };
+
+    vkCmdPipelineBarrier(
+        cmd,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+        0,
+        0, nullptr,
+        0, nullptr,
+        1, &presentBarrier
+    );
+
+
+    if (vkEndCommandBuffer(cmd) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to record command buffer!");
+    }
+}
+
+void ashen::Renderer::OnResize()
+{
+    auto size = m_pWindow->GetFramebufferSize();
+    while (size.x == 0 || size.y == 0)
+    {
+        size = m_pWindow->GetFramebufferSize();
+        m_pWindow->PollEvents();
+    }
+
+    m_pContext->RebuildSwapchain(size);
+    CreateDepthResources(m_pContext->GetSwapchainExtent());
+    m_pCamera->AspectRatio = m_pWindow->GetAspectRatio();
+}
+void ashen::Renderer::RecordCommandBuffer(uint32_t imageIndex)
+{
+    SetupFrame(imageIndex);
+    RenderFrame();
+    EndFrame(imageIndex);
 }

@@ -13,8 +13,12 @@ set(SOURCES
 	# rendering
 	"${SOURCE_DIR}/rendering/memory/Buffer.cpp"
 	"${SOURCE_DIR}/rendering/memory/Image.cpp"
+
+	"${SOURCE_DIR}/rendering/pipeline/Descriptors.cpp"
 	"${SOURCE_DIR}/rendering/pipeline/Pipeline.cpp"
+
 	"${SOURCE_DIR}/rendering/types/Mesh.cpp"
+
 	"${SOURCE_DIR}/rendering/Renderer.cpp"
 	"${SOURCE_DIR}/rendering/VulkanContext.cpp"
 )
