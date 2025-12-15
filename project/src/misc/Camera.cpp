@@ -20,12 +20,12 @@ void ashen::Camera::Update()
 {
 	auto move = Timer::GetDeltaSeconds() * Speed * (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT) ? 3.f : 1.f);
 
-	if (m_pWindow->IsKeyDown(GLFW_KEY_W)) m_Position += move * m_Forward;
-	if (m_pWindow->IsKeyDown(GLFW_KEY_S)) m_Position -= move * m_Forward;
-	if (m_pWindow->IsKeyDown(GLFW_KEY_A)) m_Position -= move * m_Right;
-	if (m_pWindow->IsKeyDown(GLFW_KEY_D)) m_Position += move * m_Right;
-	if (m_pWindow->IsKeyDown(GLFW_KEY_E)) m_Position += move * glm::vec3(0, 1, 0);
-	if (m_pWindow->IsKeyDown(GLFW_KEY_Q)) m_Position -= move * glm::vec3(0, 1, 0);
+	if (m_pWindow->IsKeyDown(GLFW_KEY_W)) Position += move * Forward;
+	if (m_pWindow->IsKeyDown(GLFW_KEY_S)) Position -= move * Forward;
+	if (m_pWindow->IsKeyDown(GLFW_KEY_A)) Position -= move * Right;
+	if (m_pWindow->IsKeyDown(GLFW_KEY_D)) Position += move * Right;
+	if (m_pWindow->IsKeyDown(GLFW_KEY_E)) Position += move * glm::vec3(0, 1, 0);
+	if (m_pWindow->IsKeyDown(GLFW_KEY_Q)) Position -= move * glm::vec3(0, 1, 0);
 
     static bool firstMouse = true;
     static float lastX = 0.0;
@@ -49,11 +49,11 @@ void ashen::Camera::Update()
         offsetX *= Sensitivity;
         offsetY *= Sensitivity;
 
-        m_Rotation.y += offsetX;
-        m_Rotation.x += offsetY;
+        Rotation.y += offsetX;
+        Rotation.x += offsetY;
 
-        m_Rotation.x = std::min(m_Rotation.x, 89.9f);
-        m_Rotation.x = std::max(m_Rotation.x, -89.9f);
+        Rotation.x = std::min(Rotation.x, 89.9f);
+        Rotation.x = std::max(Rotation.x, -89.9f);
 
         GetViewMatrix();
     }
@@ -66,14 +66,14 @@ void ashen::Camera::Update()
 //--------------------------------------------------
 glm::mat4 ashen::Camera::GetViewMatrix()
 {
-	const glm::mat4 T = glm::translate(glm::mat4(1.0f), m_Position);
-	const glm::quat rotationQuaternion = glm::quat(glm::radians(m_Rotation));
+	const glm::mat4 T = glm::translate(glm::mat4(1.0f), Position);
+	const glm::quat rotationQuaternion = glm::quat(glm::radians(Rotation));
 	const glm::mat4 R = glm::mat4_cast(rotationQuaternion);
 
 	auto mat = T * R;
-	m_Right = glm::normalize(glm::vec3(mat[0]));
-	m_Up = glm::normalize(glm::vec3(mat[1]));
-	m_Forward = glm::normalize(glm::vec3(mat[2]));
+	Right = glm::normalize(glm::vec3(mat[0]));
+	Up = glm::normalize(glm::vec3(mat[1]));
+	Forward = glm::normalize(glm::vec3(mat[2]));
 
 	return glm::inverse(mat);
 }

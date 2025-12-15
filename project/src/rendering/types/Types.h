@@ -6,64 +6,41 @@
 
 namespace ashen
 {
-	struct TriangleShaderPCV
+	// -- Camera --
+	struct CameraMatricesPC
 	{
 		glm::mat4 view;
 		glm::mat4 proj;
 	};
 
-	struct SkyFromSpaceVS
+	// -- Sky --
+	struct SkyVS
 	{
 		float eT;
 	};
-	struct SkyFromSpaceFS
+	struct SkyFS
 	{
-		
+		float eT;
 	};
 
-	struct SkyFromAtmosphereVS
+	// -- Ground --
+	struct GroundVS
 	{
-		
+		float eT;
 	};
-	struct SkyFromAtmosphereFS
+	struct GroundFS
 	{
-		
-	};
-
-	struct GroundFromSpaceVS
-	{
-		
-	};
-	struct GroundFromSpaceFS
-	{
-		
+		float eT;
 	};
 
-	struct GroundFromAtmosphereVS
+	// -- Space --
+	struct SpaceVS
 	{
-		
+		float eT;
 	};
-	struct GroundFromAtmosphereFS
+	struct SpaceFS
 	{
-		
-	};
-
-	struct SpaceFromSpaceVS
-	{
-		
-	};
-	struct SpaceFromSpaceFS
-	{
-		
-	};
-
-	struct SpaceFromAtmosphereVS
-	{
-		
-	};
-	struct SpaceFromAtmosphereFS
-	{
-		
+		float eT;
 	};
 }
 

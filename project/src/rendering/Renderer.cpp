@@ -19,7 +19,14 @@ ashen::Renderer::Renderer(Window* pWindow)
     CreateSkyMesh();
 
     const auto count = m_pContext->GetSwapchainImageCount();
-    m_vUBO_SFS_VS = { *m_pContext, count };
+    m_vUBOSpace_VS  = { *m_pContext, count };
+    m_vUBOSpace_FS  = { *m_pContext, count };
+
+    m_vUBOGround_VS = { *m_pContext, count };
+    m_vUBOGround_FS = { *m_pContext, count };
+
+    m_vUBOSky_VS    = { *m_pContext, count };
+    m_vUBOSky_FS    = { *m_pContext, count };
 
     CreateDepthResources(m_pContext->GetSwapchainExtent());
     CreateDescriptorSets();
@@ -45,8 +52,42 @@ void ashen::Renderer::Update()
 {
     m_pCamera->Update();
 
-    float data = Timer::GetTotalTimeSeconds();
-    m_vUBO_SFS_VS[m_CurrentFrame].MapData(&data, sizeof(SkyFromSpaceVS));
+    SkyVS skyVs
+    {
+        .eT = Timer::GetTotalTimeSeconds()
+    };
+    SkyFS skyFs
+    {
+        .eT = Timer::GetTotalTimeSeconds()
+    };
+    m_vUBOSky_VS[m_CurrentFrame].MapData(&skyVs, sizeof(SkyVS));
+    m_vUBOSky_FS[m_CurrentFrame].MapData(&skyFs, sizeof(SkyVS));
+
+
+
+    GroundVS groundVs
+    {
+        .eT = Timer::GetTotalTimeSeconds()
+    };
+    GroundFS groundFs
+    {
+        .eT = Timer::GetTotalTimeSeconds()
+    };
+    m_vUBOGround_VS[m_CurrentFrame].MapData(&groundVs, sizeof(GroundVS));
+    m_vUBOGround_FS[m_CurrentFrame].MapData(&groundFs, sizeof(GroundFS));
+
+
+
+    SpaceVS spaceVs
+    {
+        .eT = Timer::GetTotalTimeSeconds()
+    };
+    SpaceFS spaceFx
+    {
+        .eT = Timer::GetTotalTimeSeconds()
+    };
+    m_vUBOSpace_VS[m_CurrentFrame].MapData(&spaceVs, sizeof(SpaceVS));
+    m_vUBOSpace_FS[m_CurrentFrame].MapData(&spaceFx, sizeof(SpaceFS));
 }
 void ashen::Renderer::Render()
 {
@@ -132,9 +173,9 @@ void ashen::Renderer::CreatePlaneMesh()
 void ashen::Renderer::CreateSkyMesh()
 {
     // -- Data --
-    constexpr float radius = 100.f;
-    constexpr int segmentsLat = 16;
-    constexpr int segmentsLon = 32;
+    const float radius = m_OuterRadius;
+    constexpr int segmentsLat = 50;
+    constexpr int segmentsLon = 100;
     constexpr float VERTEX_COLOR_CHANNEL = 0.5f;
     constexpr glm::vec3 VERTEX_COLOR = { VERTEX_COLOR_CHANNEL , VERTEX_COLOR_CHANNEL , VERTEX_COLOR_CHANNEL };
 
@@ -197,18 +238,13 @@ void ashen::Renderer::CreatePipelines()
     pipelineRenderingInfo.pColorAttachmentFormats = &swapchainFormat;
     pipelineRenderingInfo.depthAttachmentFormat = m_vDepthImages.front().GetFormat();
 
+    auto attr = Vertex::GetAttributeDescriptions();
+    auto bind = Vertex::GetBindingDescription();
+
     PipelineBuilder pipelineBuilder{ *m_pContext };
     pipelineBuilder
-        .AddPushConstantRange()
-	        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
-	        .SetOffset(0)
-	        .SetSize(sizeof(TriangleShaderPCV))
-	        .EndRange()
-        .SetVertexAttributeDesc(Vertex::GetAttributeDescriptions())
-        .SetVertexBindingDesc(Vertex::GetBindingDescription())
-
-        .SetVertexShader("shaders/triangle.vert.spv")
-        .SetFragmentShader("shaders/triangle.frag.spv")
+        .SetVertexAttributeDesc(attr)
+        .SetVertexBindingDesc(bind)
 
         .AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT)
         .AddDynamicState(VK_DYNAMIC_STATE_SCISSOR)
@@ -220,69 +256,161 @@ void ashen::Renderer::CreatePipelines()
         .SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
         .SetPolygonMode(VK_POLYGON_MODE_FILL)
 
-        .SetupDynamicRendering(pipelineRenderingInfo)
+        .SetupDynamicRendering(pipelineRenderingInfo);
 
-        .Build(m_PipelineDefault);
+    std::string prefix = "shaders/";
+    std::string vert = ".vert.spv";
+    std::string frag = ".frag.spv";
 
-
-    pipelineBuilder = { *m_pContext };
     pipelineBuilder
         .AddPushConstantRange()
-	        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
+			.SetSize(sizeof(CameraMatricesPC))
+			.SetOffset(0)
+			.SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
+		    .EndRange()
+		.AddDescriptorSet(m_vDescriptorSetsSky.front())
+        .SetVertexShader(prefix + "SkyFromSpace" + vert)
+        .SetFragmentShader(prefix + "SkyFromSpace" + frag)
+        .Build(m_SkyFromSpace);
+
+    pipelineBuilder
+        .AddPushConstantRange()
+	        .SetSize(sizeof(CameraMatricesPC))
 	        .SetOffset(0)
-	        .SetSize(sizeof(TriangleShaderPCV))
+	        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
 	        .EndRange()
-        .AddDescriptorSet(m_vDescriptorSets.front())
-        .SetVertexAttributeDesc(Vertex::GetAttributeDescriptions())
-        .SetVertexBindingDesc(Vertex::GetBindingDescription())
+        .AddDescriptorSet(m_vDescriptorSetsSky.front())
+        .SetVertexShader(prefix + "SkyFromAtmosphere" + vert)
+        .SetFragmentShader(prefix + "SkyFromAtmosphere" + frag)
+        .Build(m_SkyFromAtmosphere);
 
-        .SetVertexShader("shaders/SkyFromSpace.vert.spv")
-        .SetFragmentShader("shaders/SkyFromSpace.frag.spv")
+    pipelineBuilder
+        .AddPushConstantRange()
+	        .SetSize(sizeof(CameraMatricesPC))
+	        .SetOffset(0)
+	        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
+	        .EndRange()
+        .AddDescriptorSet(m_vDescriptorSetsGround.front())
+        .SetVertexShader(prefix + "GroundFromSpace" + vert)
+        .SetFragmentShader(prefix + "GroundFromSpace" + frag)
+        .Build(m_GroundFromSpace);
 
-        .AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT)
-        .AddDynamicState(VK_DYNAMIC_STATE_SCISSOR)
+    pipelineBuilder
+        .AddPushConstantRange()
+	        .SetSize(sizeof(CameraMatricesPC))
+	        .SetOffset(0)
+	        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
+	        .EndRange()
+        .AddDescriptorSet(m_vDescriptorSetsGround.front())
+        .SetVertexShader(prefix + "GroundFromAtmosphere" + vert)
+        .SetFragmentShader(prefix + "GroundFromAtmosphere" + frag)
+        .Build(m_GroundFromAtmosphere);
 
-        .SetDepthTest(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS)
+    pipelineBuilder
+        .AddPushConstantRange()
+	        .SetSize(sizeof(CameraMatricesPC))
+	        .SetOffset(0)
+	        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
+	        .EndRange()
+        .AddDescriptorSet(m_vDescriptorSetsSpace.front())
+        .SetVertexShader(prefix + "SpaceFromSpace" + vert)
+        .SetFragmentShader(prefix + "SpaceFromSpace" + frag)
+        .Build(m_SpaceFromSpace);
 
-        .SetCullMode(VK_CULL_MODE_NONE)
-        .SetFrontFace(VK_FRONT_FACE_CLOCKWISE)
-        .SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-        .SetPolygonMode(VK_POLYGON_MODE_FILL)
+    pipelineBuilder
+        .AddPushConstantRange()
+	        .SetSize(sizeof(CameraMatricesPC))
+	        .SetOffset(0)
+	        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
+	        .EndRange()
+        .AddDescriptorSet(m_vDescriptorSetsSpace.front())
+        .SetVertexShader(prefix + "SpaceFromAtmosphere" + vert)
+        .SetFragmentShader(prefix + "SpaceFromAtmosphere" + frag)
+        .Build(m_SpaceFromAtmosphere);
 
-        .SetupDynamicRendering(pipelineRenderingInfo)
-
-        .Build(m_PipelineSky);
 }
 void ashen::Renderer::CreateDescriptorSets()
 {
     DescriptorPoolBuilder builder{ *m_pContext };
     auto count = m_pContext->GetSwapchainImageCount();
     builder
-        .AddPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, count)
-        .SetMaxSets(count)
+        .AddPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, count * 3 * 2)
+        .SetMaxSets(count * 3)
         .SetFlags(0)
         .Build(m_DescriptorPool);
 
-    m_vDescriptorSets.resize(count);
-    int idx = 0;
-    for (auto& set : m_vDescriptorSets)
+    m_vDescriptorSetsSky.resize(count);
+    m_vDescriptorSetsGround.resize(count);
+    m_vDescriptorSetsSpace.resize(count);
+    for (uint32_t i{}; i < count; ++i)
     {
         DescriptorSetAllocator allocator{ *m_pContext };
+        DescriptorSetWriter writer{ *m_pContext };
+
         allocator
             .NewLayoutBinding()
 	            .SetType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
 	            .SetCount(1)
 	            .SetShaderStages(VK_SHADER_STAGE_VERTEX_BIT)
 	            .EndLayoutBinding()
-            .Allocate(m_DescriptorPool, set);
+            .NewLayoutBinding()
+	            .SetType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+	            .SetCount(1)
+	            .SetShaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
+	            .EndLayoutBinding()
+            .Allocate(m_DescriptorPool, m_vDescriptorSetsSky[i]);
 
-        DescriptorSetWriter writer{ *m_pContext };
+        allocator
+            .NewLayoutBinding()
+	            .SetType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+	            .SetCount(1)
+	            .SetShaderStages(VK_SHADER_STAGE_VERTEX_BIT)
+	            .EndLayoutBinding()
+            .NewLayoutBinding()
+	            .SetType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+	            .SetCount(1)
+	            .SetShaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
+	            .EndLayoutBinding()
+            .Allocate(m_DescriptorPool, m_vDescriptorSetsGround[i]);
+        allocator
+            .NewLayoutBinding()
+	            .SetType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+	            .SetCount(1)
+	            .SetShaderStages(VK_SHADER_STAGE_VERTEX_BIT)
+	            .EndLayoutBinding()
+            .NewLayoutBinding()
+	            .SetType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+	            .SetCount(1)
+	            .SetShaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
+	            .EndLayoutBinding()
+            .Allocate(m_DescriptorPool, m_vDescriptorSetsSpace[i]);
+
         writer
-    		.AddBufferInfo(m_vUBO_SFS_VS[idx], 0, sizeof(SkyFromSpaceVS))
-            .WriteBuffers(set, 0)
-    		.Execute();
+            .AddBufferInfo(m_vUBOSky_VS[i], 0, sizeof(SkyVS))
+            .WriteBuffers(m_vDescriptorSetsSky[i], 0)
+            .Execute();
+        writer
+            .AddBufferInfo(m_vUBOSky_FS[i], 0, sizeof(SkyFS))
+            .WriteBuffers(m_vDescriptorSetsSky[i], 1)
+            .Execute();
 
-		++idx;
+        writer
+            .AddBufferInfo(m_vUBOGround_VS[i], 0, sizeof(GroundVS))
+            .WriteBuffers(m_vDescriptorSetsGround[i], 0)
+            .Execute();
+        writer
+            .AddBufferInfo(m_vUBOGround_FS[i], 0, sizeof(GroundFS))
+            .WriteBuffers(m_vDescriptorSetsGround[i], 1)
+            .Execute();
+
+        writer
+            .AddBufferInfo(m_vUBOSpace_VS[i], 0, sizeof(SpaceVS))
+            .WriteBuffers(m_vDescriptorSetsSpace[i], 0)
+            .Execute();
+        writer
+            .AddBufferInfo(m_vUBOSpace_FS[i], 0, sizeof(SpaceFS))
+            .WriteBuffers(m_vDescriptorSetsSpace[i], 1)
+            .Execute();
     }
 }
 void ashen::Renderer::CreateDepthResources(VkExtent2D extent)
@@ -423,21 +551,35 @@ void ashen::Renderer::RenderFrame()
 {
     VkCommandBuffer cmd = m_vCommandBuffers[m_CurrentFrame];
 
-    m_PipelineDefault.Bind(cmd);
-    m_pMeshFloor->Bind(cmd);
+    auto camPos = m_pCamera->Position;
+    auto camHeight = glm::length(camPos);
+    CameraMatricesPC camMatrices{ m_pCamera->GetViewMatrix(), m_pCamera->GetProjectionMatrix() };
 
-    TriangleShaderPCV pcvs{};
-    pcvs.view = m_pCamera->GetViewMatrix();
-    pcvs.proj = m_pCamera->GetProjectionMatrix();
-    vkCmdPushConstants(cmd, m_PipelineDefault.GetLayoutHandle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(TriangleShaderPCV), &pcvs);
+    // -- Space Objects --
+
+    // -- Ground Objects --
+    Pipeline* pGroundShader;
+    if (camHeight >= m_OuterRadius) pGroundShader = &m_GroundFromSpace;
+    else pGroundShader = &m_GroundFromAtmosphere;
+
+    pGroundShader->Bind(cmd);
+    m_pMeshFloor->Bind(cmd);
+    vkCmdPushConstants(cmd, pGroundShader->GetLayoutHandle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(CameraMatricesPC), &camMatrices);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pGroundShader->GetLayoutHandle(), 0, 1,
+							&m_vDescriptorSetsGround[m_CurrentFrame].GetHandle(), 0, nullptr);
 
     m_pMeshFloor->Draw(cmd);
 
-    m_PipelineSky.Bind(cmd);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineSky.GetLayoutHandle(), 0, 1, &m_vDescriptorSets[m_CurrentFrame].GetHandle(), 0, nullptr);
-    m_pMeshSky->Bind(cmd);
+    // -- Sky Objects --
+    Pipeline* pSkyShader;
+    if (camHeight >= m_OuterRadius) pSkyShader = &m_SkyFromSpace;
+    else pSkyShader = &m_SkyFromAtmosphere;
 
-    vkCmdPushConstants(cmd, m_PipelineSky.GetLayoutHandle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(TriangleShaderPCV), &pcvs);
+    pSkyShader->Bind(cmd);
+    m_pMeshSky->Bind(cmd);
+    vkCmdPushConstants(cmd, pSkyShader->GetLayoutHandle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(CameraMatricesPC), &camMatrices);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pSkyShader->GetLayoutHandle(), 0, 1,
+        &m_vDescriptorSetsSky[m_CurrentFrame].GetHandle(), 0, nullptr);
 
     m_pMeshSky->Draw(cmd);
 }

@@ -39,6 +39,48 @@ namespace ashen
         void Render();
 
     private:
+        // -- Context --
+        Window* m_pWindow;
+        std::unique_ptr<VulkanContext> m_pContext;
+
+        //--------------------------------------------------
+		//    Scattering
+		//--------------------------------------------------
+        // -- Settings --
+        float m_InnerRadius     { 10.f };
+        float m_OuterRadius     { 10.25f };
+        float m_Scale           { 1.f / (m_OuterRadius - m_InnerRadius) };
+
+        // -- Meshes --
+        std::unique_ptr<Mesh>   m_pMeshFloor;
+        std::unique_ptr<Mesh>   m_pMeshSky;
+        std::unique_ptr<Camera> m_pCamera;
+
+        // -- Pipelines --
+        Pipeline                        m_SkyFromSpace          { };
+        Pipeline                        m_SkyFromAtmosphere     { };
+        std::vector<DescriptorSet>      m_vDescriptorSetsSky    { };
+        UniformBufferGroup<SkyVS>       m_vUBOSky_VS            { };
+        UniformBufferGroup<SkyFS>       m_vUBOSky_FS            { };
+
+        Pipeline                        m_GroundFromSpace       { };
+        Pipeline                        m_GroundFromAtmosphere  { };
+        std::vector<DescriptorSet>      m_vDescriptorSetsGround { };
+        UniformBufferGroup<GroundVS>    m_vUBOGround_VS         { };
+        UniformBufferGroup<GroundFS>    m_vUBOGround_FS         { };
+
+        Pipeline                        m_SpaceFromSpace        { };
+        Pipeline                        m_SpaceFromAtmosphere   { };
+        std::vector<DescriptorSet>      m_vDescriptorSetsSpace  { };
+        UniformBufferGroup<SpaceVS>     m_vUBOSpace_VS          { };
+        UniformBufferGroup<SpaceFS>     m_vUBOSpace_FS          { };
+
+
+
+		//--------------------------------------------------
+        //    Rendering
+        //--------------------------------------------------
+
         // -- Meshes --
         void CreatePlaneMesh();
         void CreateSkyMesh();
@@ -57,32 +99,16 @@ namespace ashen
         void RecordCommandBuffer(uint32_t imageIndex);
         void OnResize();
 
-        std::unique_ptr<VulkanContext> m_pContext;
-        Window* m_pWindow;
-        std::unique_ptr<Camera> m_pCamera;
-
         // -- Buffers --
         DescriptorPool m_DescriptorPool{};
-        std::vector<DescriptorSet> m_vDescriptorSets;
-
-        UniformBufferGroup<SkyFromSpaceVS> m_vUBO_SFS_VS{};
-
         std::vector<VkCommandBuffer> m_vCommandBuffers;
         std::vector<Image> m_vDepthImages;
-
-        // -- Rendering --
-        Pipeline m_PipelineDefault{};
-        Pipeline m_PipelineSky{};
 
         // -- Sync --
         std::vector<VkSemaphore> m_vImageAvailableSemaphores;
         std::vector<VkSemaphore> m_vRenderFinishedSemaphores;
         std::vector<VkFence> m_vInFlightFences;
         uint32_t m_CurrentFrame = 0;
-
-        // -- Meshes --
-        std::unique_ptr<Mesh> m_pMeshFloor;
-        std::unique_ptr<Mesh> m_pMeshSky;
     };
 
 }

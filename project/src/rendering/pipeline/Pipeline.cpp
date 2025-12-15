@@ -341,6 +341,9 @@ void ashen::PipelineBuilder::Build(Pipeline& pipeline)
 
     pipeline.m_pContext = m_pContext;
 
+    m_vPushConstantRanges.clear();
+    m_vDescriptorLayouts.clear();
+    m_vShaderInfo.clear();
     if (m_VertexShader != VK_NULL_HANDLE) vkDestroyShaderModule(m_pContext->GetDevice(), m_VertexShader, nullptr);
     if (m_FragmentShader != VK_NULL_HANDLE) vkDestroyShaderModule(m_pContext->GetDevice(), m_FragmentShader, nullptr);
 }

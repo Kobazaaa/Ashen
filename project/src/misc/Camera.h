@@ -44,23 +44,19 @@ namespace ashen
         float NearPlane{0.01f};
         float FarPlane{10000.f};
 
-		//--------------------------------------------------
+        glm::vec3 Position{};
+        glm::vec3 Rotation{};
+        glm::vec3 Forward{};
+        glm::vec3 Right{};
+        glm::vec3 Up{};
+        //--------------------------------------------------
 		//    Accessors & Mutators
 		//--------------------------------------------------
         glm::mat4 GetViewMatrix();
         glm::mat4 GetProjectionMatrix() const;
 
     private:
-        bool IsKeyDown(int key);
-
         Window* m_pWindow{} ;
-
-        glm::vec3 m_Position{};
-        glm::vec3 m_Rotation{};
-        glm::vec3 m_Forward{};
-        glm::vec3 m_Right{};
-        glm::vec3 m_Up{};
-
     };
 }
 
