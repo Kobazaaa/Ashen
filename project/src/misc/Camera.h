@@ -37,7 +37,7 @@ namespace ashen
 		//--------------------------------------------------
         void Update();
 
-        float Speed{ 100.f };
+        float Speed{ 1.f };
         float Sensitivity{ 0.1f };
         float Fov{60.f};
         float AspectRatio{};

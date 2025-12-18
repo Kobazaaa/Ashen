@@ -111,6 +111,10 @@ namespace ashen
 		PipelineBuilder& SetVertexBindingDesc(const VkVertexInputBindingDescription& desc);
 		PipelineBuilder& SetVertexAttributeDesc(const std::vector<VkVertexInputAttributeDescription>& attr);
 
+		// -- Blending --
+		PipelineBuilder& EnableColorBlend(uint32_t attachment, VkBlendFactor src, VkBlendFactor dst, VkBlendOp op);
+		PipelineBuilder& EnableAlphaBlend(uint32_t attachment, VkBlendFactor src, VkBlendFactor dst, VkBlendOp op);
+
 		// -- Other --
 		PipelineBuilder& SetPrimitiveTopology(VkPrimitiveTopology topology);
 		PipelineBuilder& SetCullMode(VkCullModeFlags cullMode);

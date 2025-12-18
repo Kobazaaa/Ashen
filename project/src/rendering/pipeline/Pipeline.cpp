@@ -233,6 +233,24 @@ ashen::PipelineBuilder& ashen::PipelineBuilder::SetVertexAttributeDesc(const std
     return *this;
 }
 
+// -- Blending --
+ashen::PipelineBuilder& ashen::PipelineBuilder::EnableColorBlend(uint32_t attachment, VkBlendFactor src, VkBlendFactor dst, VkBlendOp op)
+{
+    m_vColorBlendAttachmentState[attachment].blendEnable = VK_TRUE;
+    m_vColorBlendAttachmentState[attachment].srcColorBlendFactor = src;
+    m_vColorBlendAttachmentState[attachment].dstColorBlendFactor = dst;
+    m_vColorBlendAttachmentState[attachment].colorBlendOp = op;
+	return *this;
+}
+ashen::PipelineBuilder& ashen::PipelineBuilder::EnableAlphaBlend(uint32_t attachment, VkBlendFactor src, VkBlendFactor dst, VkBlendOp op)
+{
+    m_vColorBlendAttachmentState[attachment].blendEnable = VK_TRUE;
+    m_vColorBlendAttachmentState[attachment].srcAlphaBlendFactor = src;
+    m_vColorBlendAttachmentState[attachment].dstAlphaBlendFactor = dst;
+    m_vColorBlendAttachmentState[attachment].alphaBlendOp = op;
+    return *this;
+}
+
 // -- Other --
 ashen::PipelineBuilder& ashen::PipelineBuilder::SetPrimitiveTopology(VkPrimitiveTopology topology)
 {

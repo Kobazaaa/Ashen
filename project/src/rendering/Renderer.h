@@ -3,6 +3,7 @@
 
 // -- Standard Library --
 #include <memory>
+#include <numbers>
 
 // -- Ashen Includes --
 #include "Camera.h"
@@ -47,9 +48,31 @@ namespace ashen
 		//    Scattering
 		//--------------------------------------------------
         // -- Settings --
-        float m_InnerRadius     { 10.f };
-        float m_OuterRadius     { 10.25f };
-        float m_Scale           { 1.f / (m_OuterRadius - m_InnerRadius) };
+        int m_SampleCount           { 16 };
+
+        float m_Kr                  { 0.0025f };        // Scattering constant for Rayleigh scattering
+        float m_Km                  { 0.0010f };        // Scattering constant for Mie scattering
+    	
+        float m_Kr4PI               { m_Kr * 4.0f * std::numbers::pi_v<float> };
+    	float m_Km4PI               { m_Km * 4.0f * std::numbers::pi_v<float> };
+        
+        float m_ESun                { 20.f };           // Strength of the Sun
+        float m_g                   { -0.990f };        // Scattering constant g that affects symmetry
+
+
+        float m_InnerRadius         { 10.f };
+        float m_OuterRadius         { 10.25f };
+        float m_Scale               { 1.f / (m_OuterRadius - m_InnerRadius) };
+
+        glm::vec3 m_Light           { 0.f, 0.f, 1000.f };
+        glm::vec3 m_LightDirection  { glm::normalize(m_Light) };
+
+        glm::vec3 m_Wavelength	    { 0.650f, 0.570f, 0.475f }; // Wavelengths for RGB in order in nm
+        glm::vec3 m_Wavelength4     { powf(m_Wavelength.x, 4), powf(m_Wavelength.y, 4) , powf(m_Wavelength.z, 4) };
+
+        float m_RayleighScaleDepth  { 0.25f };
+        float m_MieScaleDepth       { 0.1f };
+
 
         // -- Meshes --
         std::unique_ptr<Mesh>   m_pMeshFloor;
@@ -82,8 +105,7 @@ namespace ashen
         //--------------------------------------------------
 
         // -- Meshes --
-        void CreatePlaneMesh();
-        void CreateSkyMesh();
+        std::unique_ptr<Mesh> CreateDome(float radius, int segmentsLat, int segmentsLon) const;
 
         // -- Creation --
         void CreatePipelines();

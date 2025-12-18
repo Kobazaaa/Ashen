@@ -4,19 +4,24 @@
 #include "Timer.h"
 #include "Types.h"
 
+// -- Math Includes --
+#define GLM_ENABLE_EXPERIMENTAL
+#include "glm/gtx/norm.hpp"
+
 //--------------------------------------------------
 //    Constructor & Destructor
 //--------------------------------------------------
 ashen::Renderer::Renderer(Window* pWindow)
-	: m_pContext(std::make_unique<VulkanContext>(pWindow))
-	, m_pWindow(pWindow)
+	: m_pWindow(pWindow)
+	, m_pContext(std::make_unique<VulkanContext>(pWindow))
 {
     m_pCamera = std::make_unique<Camera>(pWindow);
-
+    m_pCamera->Position.y = m_InnerRadius + (m_OuterRadius - m_InnerRadius) * 0.1f;
+    m_pCamera->Speed /= 10;
 	CreateSyncObjects();
 
-    CreatePlaneMesh();
-    CreateSkyMesh();
+    m_pMeshFloor    = CreateDome(m_InnerRadius, 250, 250);
+    m_pMeshSky      = CreateDome(m_OuterRadius, 250, 250);
 
     const auto count = m_pContext->GetSwapchainImageCount();
     m_vUBOSpace_VS  = { *m_pContext, count };
@@ -54,24 +59,70 @@ void ashen::Renderer::Update()
 
     SkyVS skyVs
     {
-        .eT = Timer::GetTotalTimeSeconds()
+        .cameraPos = m_pCamera->Position,
+        .cameraHeight = glm::length(m_pCamera->Position),
+
+        .lightDir = m_LightDirection,
+        .cameraHeight2 = glm::dot(m_pCamera->Position, m_pCamera->Position),
+
+        .invWaveLength = 1.f / m_Wavelength4,
+        .sampleCount = static_cast<float>(m_SampleCount),
+
+        .outerRadius = m_OuterRadius,
+        .outerRadius2 = m_OuterRadius * m_OuterRadius,
+        .innerRadius = m_InnerRadius,
+        .innerRadius2 = m_InnerRadius * m_InnerRadius,
+
+        .scale = m_Scale,
+        .scaleDepth = m_RayleighScaleDepth,
+        .scaleOverScaleDepth = m_Scale / m_RayleighScaleDepth,
+        .invScaleDepth = 1.f / m_RayleighScaleDepth,
+
+        .krESun = m_Kr * m_ESun,
+        .kmESun = m_Km * m_ESun,
+        .kr4PI = m_Kr4PI,
+        .km4PI = m_Km4PI,
     };
     SkyFS skyFs
     {
-        .eT = Timer::GetTotalTimeSeconds()
+        .lightDir = m_LightDirection,
+        .g = m_g,
+        .g2 = m_g * m_g
     };
     m_vUBOSky_VS[m_CurrentFrame].MapData(&skyVs, sizeof(SkyVS));
-    m_vUBOSky_FS[m_CurrentFrame].MapData(&skyFs, sizeof(SkyVS));
+    m_vUBOSky_FS[m_CurrentFrame].MapData(&skyFs, sizeof(SkyFS));
 
 
 
     GroundVS groundVs
     {
-        .eT = Timer::GetTotalTimeSeconds()
+        .cameraPos = m_pCamera->Position,
+        .cameraHeight = glm::length(m_pCamera->Position),
+
+    	.lightDir = m_LightDirection,
+        .cameraHeight2 = glm::dot(m_pCamera->Position, m_pCamera->Position),
+
+    	.invWaveLength = 1.f / m_Wavelength4,
+        .sampleCount = static_cast<float>(m_SampleCount),
+
+        .outerRadius = m_OuterRadius,
+        .outerRadius2 = m_OuterRadius * m_OuterRadius,
+        .innerRadius = m_InnerRadius,
+        .innerRadius2 = m_InnerRadius * m_InnerRadius,
+
+        .scale = m_Scale,
+        .scaleDepth = m_RayleighScaleDepth,
+        .scaleOverScaleDepth = m_Scale / m_RayleighScaleDepth,
+        .invScaleDepth = 1.f / m_RayleighScaleDepth,
+
+        .krESun = m_Kr * m_ESun,
+        .kmESun = m_Km * m_ESun,
+        .kr4PI = m_Kr4PI,
+        .km4PI = m_Km4PI,
     };
     GroundFS groundFs
     {
-        .eT = Timer::GetTotalTimeSeconds()
+        .n = 0.f
     };
     m_vUBOGround_VS[m_CurrentFrame].MapData(&groundVs, sizeof(GroundVS));
     m_vUBOGround_FS[m_CurrentFrame].MapData(&groundFs, sizeof(GroundFS));
@@ -153,29 +204,9 @@ void ashen::Renderer::Render()
 //    Helpers
 //--------------------------------------------------
 // -- Meshes --
-void ashen::Renderer::CreatePlaneMesh()
-{
-    constexpr float VERTEX_COLOR_CHANNEL = 0.5f;
-    constexpr glm::vec3 VERTEX_COLOR = { VERTEX_COLOR_CHANNEL , VERTEX_COLOR_CHANNEL , VERTEX_COLOR_CHANNEL };
-    m_pMeshFloor = std::make_unique<Mesh>(*m_pContext,
-        std::vector
-        {
-            Vertex{.pos = { 1000.f, -1.f,  1000.f}, .color = VERTEX_COLOR},
-            Vertex{.pos = { 1000.f, -1.f, -1000.f}, .color = VERTEX_COLOR},
-            Vertex{.pos = {-1000.f, -1.f, -1000.f}, .color = VERTEX_COLOR},
-            Vertex{.pos = {-1000.f, -1.f,  1000.f}, .color = VERTEX_COLOR}
-        },
-        std::vector<uint32_t>
-    {
-        0, 1, 2, 0, 2, 3
-    });
-}
-void ashen::Renderer::CreateSkyMesh()
+std::unique_ptr<ashen::Mesh> ashen::Renderer::CreateDome(float radius, int segmentsLat, int segmentsLon) const
 {
     // -- Data --
-    const float radius = m_OuterRadius;
-    constexpr int segmentsLat = 50;
-    constexpr int segmentsLon = 100;
     constexpr float VERTEX_COLOR_CHANNEL = 0.5f;
     constexpr glm::vec3 VERTEX_COLOR = { VERTEX_COLOR_CHANNEL , VERTEX_COLOR_CHANNEL , VERTEX_COLOR_CHANNEL };
 
@@ -222,7 +253,7 @@ void ashen::Renderer::CreateSkyMesh()
         }
     }
 
-    m_pMeshSky = std::make_unique<Mesh>(*m_pContext,
+    return std::make_unique<Mesh>(*m_pContext,
         vertices,
         indices
     );
@@ -261,28 +292,6 @@ void ashen::Renderer::CreatePipelines()
     std::string prefix = "shaders/";
     std::string vert = ".vert.spv";
     std::string frag = ".frag.spv";
-
-    pipelineBuilder
-        .AddPushConstantRange()
-			.SetSize(sizeof(CameraMatricesPC))
-			.SetOffset(0)
-			.SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
-		    .EndRange()
-		.AddDescriptorSet(m_vDescriptorSetsSky.front())
-        .SetVertexShader(prefix + "SkyFromSpace" + vert)
-        .SetFragmentShader(prefix + "SkyFromSpace" + frag)
-        .Build(m_SkyFromSpace);
-
-    pipelineBuilder
-        .AddPushConstantRange()
-	        .SetSize(sizeof(CameraMatricesPC))
-	        .SetOffset(0)
-	        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
-	        .EndRange()
-        .AddDescriptorSet(m_vDescriptorSetsSky.front())
-        .SetVertexShader(prefix + "SkyFromAtmosphere" + vert)
-        .SetFragmentShader(prefix + "SkyFromAtmosphere" + frag)
-        .Build(m_SkyFromAtmosphere);
 
     pipelineBuilder
         .AddPushConstantRange()
@@ -328,6 +337,33 @@ void ashen::Renderer::CreatePipelines()
         .SetFragmentShader(prefix + "SpaceFromAtmosphere" + frag)
         .Build(m_SpaceFromAtmosphere);
 
+    pipelineBuilder
+        .AddPushConstantRange()
+	        .SetSize(sizeof(CameraMatricesPC))
+	        .SetOffset(0)
+	        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
+	        .EndRange()
+        .AddDescriptorSet(m_vDescriptorSetsSky.front())
+        .SetVertexShader(prefix + "SkyFromSpace" + vert)
+        .SetFragmentShader(prefix + "SkyFromSpace" + frag)
+        .SetDepthTest(VK_TRUE, VK_FALSE, VK_COMPARE_OP_LESS)
+        .EnableColorBlend(0, VK_BLEND_FACTOR_SRC_ALPHA, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, VK_BLEND_OP_ADD)
+        .EnableAlphaBlend(0, VK_BLEND_FACTOR_SRC_ALPHA, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, VK_BLEND_OP_ADD)
+        .Build(m_SkyFromSpace);
+
+    pipelineBuilder
+        .AddPushConstantRange()
+	        .SetSize(sizeof(CameraMatricesPC))
+	        .SetOffset(0)
+	        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
+	        .EndRange()
+        .AddDescriptorSet(m_vDescriptorSetsSky.front())
+        .SetVertexShader(prefix + "SkyFromAtmosphere" + vert)
+        .SetFragmentShader(prefix + "SkyFromAtmosphere" + frag)
+        .SetDepthTest(VK_TRUE, VK_FALSE, VK_COMPARE_OP_LESS)
+        .EnableColorBlend(0, VK_BLEND_FACTOR_SRC_ALPHA, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, VK_BLEND_OP_ADD)
+        .EnableAlphaBlend(0, VK_BLEND_FACTOR_SRC_ALPHA, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, VK_BLEND_OP_ADD)
+        .Build(m_SkyFromAtmosphere);
 }
 void ashen::Renderer::CreateDescriptorSets()
 {
@@ -526,7 +562,7 @@ void ashen::Renderer::SetupFrame(uint32_t imageIndex) const
     colorAttachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachment.clearValue.color = { {0.1f, 0.2f, 0.3f, 1.0f} };
+    colorAttachment.clearValue.color = { {0.f, 0.f, 0.f, 1.0f} };
 
     VkRenderingAttachmentInfo depthAttachment{};
     depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;

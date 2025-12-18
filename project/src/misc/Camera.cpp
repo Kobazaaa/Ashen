@@ -18,7 +18,9 @@ ashen::Camera::Camera(Window* pWindow)
 //--------------------------------------------------
 void ashen::Camera::Update()
 {
-	auto move = Timer::GetDeltaSeconds() * Speed * (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT) ? 3.f : 1.f);
+    auto move = Timer::GetDeltaSeconds() * Speed *
+        (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT) ? 3.f :
+            (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_CONTROL) ? 0.25f : 1.f));
 
 	if (m_pWindow->IsKeyDown(GLFW_KEY_W)) Position += move * Forward;
 	if (m_pWindow->IsKeyDown(GLFW_KEY_S)) Position -= move * Forward;
