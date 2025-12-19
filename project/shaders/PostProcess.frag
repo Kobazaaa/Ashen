@@ -16,5 +16,5 @@ layout(location = 0) out vec4 outColor;
 void main()
 {
 	vec4 hdrColor = texture(Render, fragTexCoord);
-	outColor = 1.0 - exp(hdrColor * -pc.exposure);
+	outColor = vec4(1.0 - exp(hdrColor.rgb * -pc.exposure), hdrColor.a);
 }

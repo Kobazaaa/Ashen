@@ -216,6 +216,7 @@ void ashen::Renderer::HandleInput()
     const float gChange = 0.05f * deltaT;
     const float eSunChange = 1.f * deltaT;
     const float waveChange = 0.01f * deltaT;
+    const float sunDirChange = 0.1f * deltaT;
 
     // -- Camera --
     m_pCamera->Update();
@@ -239,9 +240,6 @@ void ashen::Renderer::HandleInput()
         CreatePipelines(m_UseExposure ? m_vRenderTargets.front().GetFormat() : m_pContext->GetSwapchainFormat());
     }
     tabPrev = tabCurr;
-
-    if (m_pWindow->IsKeyDown(GLFW_KEY_UP)) m_Exposure += exposureChange;
-    else if (m_pWindow->IsKeyDown(GLFW_KEY_DOWN)) m_Exposure -= exposureChange;
 
     // -- Scattering --
     if (m_pWindow->IsKeyDown(GLFW_KEY_1))
@@ -286,6 +284,28 @@ void ashen::Renderer::HandleInput()
         else m_Wavelength[2] += waveChange;
         m_Wavelength4[2] = powf(m_Wavelength[2], 4.0f);
     }
+
+    // -- Exposure --
+    else if (m_pWindow->IsKeyDown(GLFW_KEY_8))
+    {
+        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_Exposure -= exposureChange;
+        else m_Exposure += exposureChange;
+    }
+
+    // -- Light --
+    static float azimuth = atan2(m_LightDirection.z, m_LightDirection.x);
+    static float elevation = acos(glm::clamp(m_LightDirection.y, -1.0f, 1.0f));
+
+    if (m_pWindow->IsKeyDown(GLFW_KEY_UP))    elevation -= sunDirChange;
+    if (m_pWindow->IsKeyDown(GLFW_KEY_DOWN))  elevation += sunDirChange;
+    if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT))  azimuth += sunDirChange;
+    if (m_pWindow->IsKeyDown(GLFW_KEY_RIGHT)) azimuth -= sunDirChange;
+
+    m_LightDirection = glm::normalize(glm::vec3(
+       sin(elevation) * cos(azimuth),
+       cos(elevation),
+       sin(elevation) * sin(azimuth))
+    );
 
     PrintStats();
 }
@@ -339,8 +359,8 @@ void ashen::Renderer::PrintStats()
     std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Tab]" << RESET_TXT
 				<< "\t\t\t\tHDR: " << (m_UseExposure ? BRIGHT_GREEN_TX : BRIGHT_RED_TXT) << (m_UseExposure ? "True" : "False") << RESET_TXT << "\n";
 
-    std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Up / Down]" << RESET_TXT
-        << "\t\t\tExposure: " << m_Exposure << "\n";
+    std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key 8 / Shift + 8]" << RESET_TXT
+        << "\t\tExposure: " << m_Exposure << "\n";
 
     std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[X]" << RESET_TXT
 				<< "\t\t\t\tFPS: " << DARK_YELLOW_TXT << fps  << RESET_TXT << "\n";
