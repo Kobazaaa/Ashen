@@ -285,7 +285,32 @@ ashen::DescriptorSetWriter& ashen::DescriptorSetWriter::WriteBuffers(const Descr
 
 	return *this;
 }
+ashen::DescriptorSetWriter& ashen::DescriptorSetWriter::AddImageInfo(VkImageView view, VkImageLayout layout, const VkSampler& sampler)
+{
+	VkDescriptorImageInfo imageInfo{};
+	imageInfo.imageLayout = layout;
+	imageInfo.imageView = view;
+	imageInfo.sampler = sampler;
+	m_vImageInfos.push_back(imageInfo);
 
+	return *this;
+}
+ashen::DescriptorSetWriter& ashen::DescriptorSetWriter::WriteImages(const DescriptorSet& set, uint32_t binding, uint32_t count, uint32_t arraySlot)
+{
+	VkWriteDescriptorSet write{};
+	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	write.dstSet = set.GetHandle();
+	write.dstBinding = binding;
+	write.dstArrayElement = arraySlot;
+	write.descriptorType = set.GetBindings()[binding].descriptorType;
+	write.descriptorCount = count == 0xFFFFFFFF ? set.GetBindings()[binding].descriptorCount : count;
+	write.pImageInfo = m_vImageInfos.data();
+	write.pBufferInfo = nullptr;
+	write.pTexelBufferView = nullptr;
+	m_vDescriptorWrites.push_back(write);
+
+	return *this;
+}
 void ashen::DescriptorSetWriter::Execute()
 {
 	vkUpdateDescriptorSets(m_pContext->GetDevice(), static_cast<uint32_t>(m_vDescriptorWrites.size()), m_vDescriptorWrites.data(), 0, nullptr);

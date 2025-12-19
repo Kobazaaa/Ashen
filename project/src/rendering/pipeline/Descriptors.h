@@ -180,6 +180,9 @@ namespace ashen
 		DescriptorSetWriter& AddBufferInfo(const Buffer& buffer, uint32_t offset, uint32_t range);
 		DescriptorSetWriter& WriteBuffers(const DescriptorSet& set, uint32_t binding, uint32_t count = 0xFFFFFFFF);
 
+		DescriptorSetWriter& AddImageInfo(VkImageView view, VkImageLayout layout, const VkSampler& sampler);
+		DescriptorSetWriter& WriteImages(const DescriptorSet& set, uint32_t binding, uint32_t count = 0xFFFFFFFF, uint32_t arraySlot = 0);
+
 		void Execute();
 
 	private:
@@ -187,6 +190,7 @@ namespace ashen
 
 		std::vector<VkWriteDescriptorSet> m_vDescriptorWrites;
 		std::vector<VkDescriptorBufferInfo> m_vBufferInfos;
+		std::vector<VkDescriptorImageInfo> m_vImageInfos;
 	};
 }
 

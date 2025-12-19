@@ -37,16 +37,20 @@ ashen::Renderer::Renderer(Window* pWindow)
     m_vUBOSky_VS    = { *m_pContext, count };
     m_vUBOSky_FS    = { *m_pContext, count };
 
+    CreateSamplers();
     CreateDepthResources(m_pContext->GetSwapchainExtent());
+    CreateRenderTargets(m_pContext->GetSwapchainExtent());
     CreateDescriptorSets();
 
-    CreatePipelines();
-	CreateCommandBuffers();
+    CreatePipelines(m_UseExposure ? m_vRenderTargets.front().GetFormat() : m_pContext->GetSwapchainFormat());
+    CreateCommandBuffers();
 }
 ashen::Renderer::~Renderer()
 {
     VkDevice device = m_pContext->GetDevice();
     vkDeviceWaitIdle(device);
+
+    vkDestroySampler(m_pContext->GetDevice(), m_PostProcessSampler, nullptr);
 
 	for (const auto& sem : m_vImageAvailableSemaphores) vkDestroySemaphore(device, sem, nullptr);
 	for (const auto& sem : m_vRenderFinishedSemaphores) vkDestroySemaphore(device, sem, nullptr);
@@ -204,6 +208,15 @@ void ashen::Renderer::Render()
 }
 void ashen::Renderer::HandleInput()
 {
+    // -- Variables --
+    const float deltaT = Timer::GetDeltaSeconds();
+    const float exposureChange = 0.5f * deltaT;
+    const float krChange = 0.0005f * deltaT;
+    const float kmChange = 0.0005f * deltaT;
+    const float gChange = 0.05f * deltaT;
+    const float eSunChange = 1.f * deltaT;
+    const float waveChange = 0.01f * deltaT;
+
     // -- Camera --
     m_pCamera->Update();
 
@@ -217,47 +230,60 @@ void ashen::Renderer::HandleInput()
     kPAddPrev = kpAdd;
     kPSubtractPrev = kpSub;
 
+    // -- HDR --
+    static bool tabPrev = false;
+    const bool tabCurr = m_pWindow->IsKeyDown(GLFW_KEY_TAB);
+    if (tabCurr && !tabPrev)
+    {
+        m_UseExposure = !m_UseExposure;
+        CreatePipelines(m_UseExposure ? m_vRenderTargets.front().GetFormat() : m_pContext->GetSwapchainFormat());
+    }
+    tabPrev = tabCurr;
+
+    if (m_pWindow->IsKeyDown(GLFW_KEY_UP)) m_Exposure += exposureChange;
+    else if (m_pWindow->IsKeyDown(GLFW_KEY_DOWN)) m_Exposure -= exposureChange;
+
     // -- Scattering --
     if (m_pWindow->IsKeyDown(GLFW_KEY_1))
     {
-        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_Kr = std::max(0.0f, m_Kr - 0.0001f);
-        else m_Kr += 0.0001f;
+        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_Kr = std::max(0.0f, m_Kr - krChange);
+        else m_Kr += krChange;
         m_Kr4PI = m_Kr * 4.0f * std::numbers::pi_v<float>;
     }
     else if (m_pWindow->IsKeyDown(GLFW_KEY_2))
     {
-        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_Km = std::max(0.0f, m_Km - 0.0001f);
-        else m_Km += 0.0001f;
+        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_Km = std::max(0.0f, m_Km - kmChange);
+        else m_Km += kmChange;
         m_Km4PI = m_Km * 4.0f * std::numbers::pi_v<float>;
     }
     else if (m_pWindow->IsKeyDown(GLFW_KEY_3))
     {
-        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_g = std::max(-1.0f, m_g - 0.001f);
-        else m_g = std::min(m_g + 0.001f, 1.0f);
+        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_g = std::max(-1.0f, m_g - gChange);
+        else m_g = std::min(m_g + gChange, 1.0f);
     }
     else if (m_pWindow->IsKeyDown(GLFW_KEY_4))
     {
-        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_ESun = std::max(0.0f, m_ESun - 0.1f);
-        else m_ESun += 0.1f;
+        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_ESun = std::max(0.0f, m_ESun - eSunChange);
+        else m_ESun += eSunChange;
     }
 
     // -- Wavelengths --
     else if (m_pWindow->IsKeyDown(GLFW_KEY_5))
     {
-        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_Wavelength[0] = std::max(0.001f, m_Wavelength[0] - 0.001f);
-        else m_Wavelength[0] += 0.001f;
+        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_Wavelength[0] = std::max(0.001f, m_Wavelength[0] - waveChange);
+        else m_Wavelength[0] += waveChange;
         m_Wavelength4[0] = powf(m_Wavelength[0], 4.0f);
     }
     else if (m_pWindow->IsKeyDown(GLFW_KEY_6))
     {
-        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_Wavelength[1] = std::max(0.001f, m_Wavelength[1] - 0.001f);
-        else m_Wavelength[1] += 0.001f;
+        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_Wavelength[1] = std::max(0.001f, m_Wavelength[1] - waveChange);
+        else m_Wavelength[1] += waveChange;
         m_Wavelength4[1] = powf(m_Wavelength[1], 4.0f);
     }
     else if (m_pWindow->IsKeyDown(GLFW_KEY_7))
     {
-        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_Wavelength[2] = std::max(0.001f, m_Wavelength[2] - 0.001f);
-        else m_Wavelength[2] += 0.001f;
+        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_Wavelength[2] = std::max(0.001f, m_Wavelength[2] - waveChange);
+        else m_Wavelength[2] += waveChange;
         m_Wavelength4[2] = powf(m_Wavelength[2], 4.0f);
     }
 
@@ -284,8 +310,8 @@ void ashen::Renderer::PrintStats()
     // -- Move cursor up to overwrite previous stats --
     static bool first = true;
     if (!first)
-		std::cout << "\033[9A";
-    first = false;
+        std::cout << "\033[11A";
+	first = false;
 
     // -- Print stats with keybind hints --
     std::cout << "--- STATS OVERVIEW ---\n";
@@ -309,6 +335,12 @@ void ashen::Renderer::PrintStats()
 						BRIGHT_RED_TXT << m_Wavelength[0] << RESET_TXT << ", " << 
 						BRIGHT_GREEN_TX << m_Wavelength[1] << RESET_TXT << ", " << 
 						BRIGHT_BLUE_TXT << m_Wavelength[2] << RESET_TXT << "]\n";
+
+    std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Tab]" << RESET_TXT
+				<< "\t\t\t\tHDR: " << (m_UseExposure ? BRIGHT_GREEN_TX : BRIGHT_RED_TXT) << (m_UseExposure ? "True" : "False") << RESET_TXT << "\n";
+
+    std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Up / Down]" << RESET_TXT
+        << "\t\t\tExposure: " << m_Exposure << "\n";
 
     std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[X]" << RESET_TXT
 				<< "\t\t\t\tFPS: " << DARK_YELLOW_TXT << fps  << RESET_TXT << "\n";
@@ -377,14 +409,48 @@ std::unique_ptr<ashen::Mesh> ashen::Renderer::CreateDome(float radius, int segme
     );
 }
 
+
 // -- Creation --
-void ashen::Renderer::CreatePipelines()
+void ashen::Renderer::CreateSamplers()
 {
+    VkSamplerCreateInfo smaplerInfo{};
+    smaplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    smaplerInfo.magFilter = VK_FILTER_NEAREST;
+    smaplerInfo.minFilter = VK_FILTER_NEAREST;
+    smaplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    smaplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    smaplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    smaplerInfo.anisotropyEnable = VK_FALSE;
+    smaplerInfo.maxAnisotropy = 0;
+    smaplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    smaplerInfo.unnormalizedCoordinates = VK_FALSE;
+    smaplerInfo.compareEnable = VK_FALSE;
+    smaplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+    smaplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    smaplerInfo.mipLodBias = 0.0f;
+    smaplerInfo.minLod = 0.0f;
+    smaplerInfo.maxLod = VK_LOD_CLAMP_NONE;
+
+    if (vkCreateSampler(m_pContext->GetDevice(), &smaplerInfo, nullptr, &m_PostProcessSampler) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create Texture Sampler!");
+}
+void ashen::Renderer::CreatePipelines(VkFormat renderFormat)
+{
+    vkDeviceWaitIdle(m_pContext->GetDevice());
+    m_GroundFromAtmosphere.Destroy();
+    m_GroundFromSpace.Destroy();
+    m_SkyFromAtmosphere.Destroy();
+    m_SkyFromSpace.Destroy();
+    m_SpaceFromAtmosphere.Destroy();
+    m_SpaceFromSpace.Destroy();
+    m_PostProcess.Destroy();
+
     VkPipelineRenderingCreateInfo pipelineRenderingInfo{};
     pipelineRenderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
     pipelineRenderingInfo.colorAttachmentCount = 1;
+    VkFormat format = renderFormat;
     VkFormat swapchainFormat = m_pContext->GetSwapchainFormat();
-    pipelineRenderingInfo.pColorAttachmentFormats = &swapchainFormat;
+    pipelineRenderingInfo.pColorAttachmentFormats = &format;
     pipelineRenderingInfo.depthAttachmentFormat = m_vDepthImages.front().GetFormat();
 
     auto attr = Vertex::GetAttributeDescriptions();
@@ -482,6 +548,30 @@ void ashen::Renderer::CreatePipelines()
         .EnableColorBlend(0, VK_BLEND_FACTOR_SRC_ALPHA, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, VK_BLEND_OP_ADD)
         .EnableAlphaBlend(0, VK_BLEND_FACTOR_SRC_ALPHA, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, VK_BLEND_OP_ADD)
         .Build(m_SkyFromAtmosphere);
+
+
+    // post process
+    pipelineRenderingInfo.pColorAttachmentFormats = &swapchainFormat;
+    pipelineBuilder = { *m_pContext };
+    pipelineBuilder
+        .AddPushConstantRange()
+            .SetSize(sizeof(Exposure))
+            .SetOffset(0)
+            .SetStageFlags(VK_SHADER_STAGE_FRAGMENT_BIT)
+            .EndRange()
+        .AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT)
+        .AddDynamicState(VK_DYNAMIC_STATE_SCISSOR)
+        .SetCullMode(VK_CULL_MODE_BACK_BIT)
+        .SetFrontFace(VK_FRONT_FACE_CLOCKWISE)
+        .SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+        .SetPolygonMode(VK_POLYGON_MODE_FILL)
+        .SetupDynamicRendering(pipelineRenderingInfo)
+        .AddDescriptorSet(m_vDescriptorSetsPostProcess.front())
+        .SetVertexShader(prefix + "FullscreenTri" + vert)
+        .SetFragmentShader(prefix + "PostProcess" + frag)
+        .SetDepthTest(VK_FALSE, VK_FALSE, VK_COMPARE_OP_NEVER)
+        .Build(m_PostProcess);
+
 }
 void ashen::Renderer::CreateDescriptorSets()
 {
@@ -489,13 +579,15 @@ void ashen::Renderer::CreateDescriptorSets()
     auto count = m_pContext->GetSwapchainImageCount();
     builder
         .AddPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, count * 3 * 2)
-        .SetMaxSets(count * 3)
+        .AddPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, count)
+        .SetMaxSets(count * 4)
         .SetFlags(0)
         .Build(m_DescriptorPool);
 
     m_vDescriptorSetsSky.resize(count);
     m_vDescriptorSetsGround.resize(count);
     m_vDescriptorSetsSpace.resize(count);
+    m_vDescriptorSetsPostProcess.resize(count);
     for (uint32_t i{}; i < count; ++i)
     {
         DescriptorSetAllocator allocator{ *m_pContext };
@@ -539,6 +631,14 @@ void ashen::Renderer::CreateDescriptorSets()
 	            .EndLayoutBinding()
             .Allocate(m_DescriptorPool, m_vDescriptorSetsSpace[i]);
 
+        allocator
+            .NewLayoutBinding()
+                .SetType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+                .SetCount(1)
+                .SetShaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
+                .EndLayoutBinding()
+            .Allocate(m_DescriptorPool, m_vDescriptorSetsPostProcess[i]);
+
         writer
             .AddBufferInfo(m_vUBOSky_VS[i], 0, sizeof(SkyVS))
             .WriteBuffers(m_vDescriptorSetsSky[i], 0)
@@ -565,6 +665,10 @@ void ashen::Renderer::CreateDescriptorSets()
             .AddBufferInfo(m_vUBOSpace_FS[i], 0, sizeof(SpaceFS))
             .WriteBuffers(m_vDescriptorSetsSpace[i], 1)
             .Execute();
+        writer
+            .AddImageInfo((m_vRenderTargets)[i].GetView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m_PostProcessSampler)
+            .WriteImages(m_vDescriptorSetsPostProcess[i], 0)
+            .Execute();
     }
 }
 void ashen::Renderer::CreateDepthResources(VkExtent2D extent)
@@ -582,10 +686,28 @@ void ashen::Renderer::CreateDepthResources(VkExtent2D extent)
             .SetWidth(extent.width)
             .SetHeight(extent.height)
             .SetTiling(VK_IMAGE_TILING_OPTIMAL)
-			.SetAspectFlags(VK_IMAGE_ASPECT_DEPTH_BIT)
-			.SetViewType(VK_IMAGE_VIEW_TYPE_2D)
+            .SetAspectFlags(VK_IMAGE_ASPECT_DEPTH_BIT)
+            .SetViewType(VK_IMAGE_VIEW_TYPE_2D)
             .SetFormat(format)
             .SetUsageFlags(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
+            .Build(image);
+    }
+}
+void ashen::Renderer::CreateRenderTargets(VkExtent2D extent)
+{
+    m_vRenderTargets.clear();
+    m_vRenderTargets.resize(m_pContext->GetSwapchainImageCount());
+    for (Image& image : m_vRenderTargets)
+    {
+        ImageBuilder imageBuilder{ *m_pContext };
+        imageBuilder
+            .SetWidth(extent.width)
+            .SetHeight(extent.height)
+            .SetTiling(VK_IMAGE_TILING_OPTIMAL)
+            .SetFormat(VK_FORMAT_R32G32B32A32_SFLOAT)
+            .SetAspectFlags(VK_IMAGE_ASPECT_COLOR_BIT)
+            .SetViewType(VK_IMAGE_VIEW_TYPE_2D)
+            .SetUsageFlags(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
             .Build(image);
     }
 }
@@ -636,7 +758,7 @@ void ashen::Renderer::CreateSyncObjects()
 }
 
 // -- Frame --
-void ashen::Renderer::SetupFrame(uint32_t imageIndex) const
+void ashen::Renderer::SetupFrame(uint32_t imageIndex)
 {
     VkCommandBuffer cmd = m_vCommandBuffers[m_CurrentFrame];
     vkResetCommandBuffer(cmd, 0);
@@ -671,20 +793,24 @@ void ashen::Renderer::SetupFrame(uint32_t imageIndex) const
         0, nullptr,
         1, &presentBarrier
     );
-
+}
+void ashen::Renderer::SetRenderTarget(VkImageView view, VkImageLayout layouot)
+{
+    VkCommandBuffer cmd = m_vCommandBuffers[m_CurrentFrame];
+    Image& depthImage = m_vDepthImages[m_CurrentFrame];
 
     // Dynamic rendering info
     VkRenderingAttachmentInfo colorAttachment{};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    colorAttachment.imageView = m_pContext->GetSwapchainImageViews()[imageIndex];
-    colorAttachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
+    colorAttachment.imageView = view;
+    colorAttachment.imageLayout = layouot;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     colorAttachment.clearValue.color = { {0.f, 0.f, 0.f, 1.0f} };
 
     VkRenderingAttachmentInfo depthAttachment{};
     depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    depthAttachment.imageView = m_vDepthImages[m_CurrentFrame].GetView();
+    depthAttachment.imageView = depthImage.GetView();
     depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -701,46 +827,88 @@ void ashen::Renderer::SetupFrame(uint32_t imageIndex) const
 
     vkCmdBeginRendering(cmd, &renderingInfo);
 }
-void ashen::Renderer::RenderFrame()
+void ashen::Renderer::EndRenderTarget()
 {
     VkCommandBuffer cmd = m_vCommandBuffers[m_CurrentFrame];
+    vkCmdEndRendering(cmd);
+}
+void ashen::Renderer::RenderFrame(uint32_t imageIndex)
+{
+    VkCommandBuffer cmd = m_vCommandBuffers[m_CurrentFrame];
+    Image& renderImage = m_vRenderTargets[m_CurrentFrame];
 
     auto camPos = m_pCamera->Position;
     auto camHeight = glm::length(camPos);
     CameraMatricesPC camMatrices{ m_pCamera->GetViewMatrix(), m_pCamera->GetProjectionMatrix() };
 
-    // -- Space Objects --
+    // Transition to be renderable
+    if (m_UseExposure)
+    {
+	    renderImage.TransitionLayout(cmd,
+	        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+	        VK_ACCESS_2_NONE, VK_PIPELINE_STAGE_2_NONE,
+	        VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+    }
 
-    // -- Ground Objects --
-    Pipeline* pGroundShader;
-    if (camHeight >= m_OuterRadius) pGroundShader = &m_GroundFromSpace;
-    else pGroundShader = &m_GroundFromAtmosphere;
+	SetRenderTarget(m_UseExposure ? renderImage.GetView() : m_pContext->GetSwapchainImageViews()[imageIndex], m_UseExposure ? renderImage.GetCurrentLayout() : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    {
+        // -- Space Objects --
 
-    pGroundShader->Bind(cmd);
-    m_pMeshFloor->Bind(cmd);
-    vkCmdPushConstants(cmd, pGroundShader->GetLayoutHandle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(CameraMatricesPC), &camMatrices);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pGroundShader->GetLayoutHandle(), 0, 1,
-							&m_vDescriptorSetsGround[m_CurrentFrame].GetHandle(), 0, nullptr);
+        // -- Ground Objects --
+        Pipeline* pGroundShader;
+        if (camHeight >= m_OuterRadius) pGroundShader = &m_GroundFromSpace;
+        else pGroundShader = &m_GroundFromAtmosphere;
 
-    m_pMeshFloor->Draw(cmd);
+        pGroundShader->Bind(cmd);
+        m_pMeshFloor->Bind(cmd);
+        vkCmdPushConstants(cmd, pGroundShader->GetLayoutHandle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(CameraMatricesPC), &camMatrices);
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pGroundShader->GetLayoutHandle(), 0, 1,
+            &m_vDescriptorSetsGround[m_CurrentFrame].GetHandle(), 0, nullptr);
 
-    // -- Sky Objects --
-    Pipeline* pSkyShader;
-    if (camHeight >= m_OuterRadius) pSkyShader = &m_SkyFromSpace;
-    else pSkyShader = &m_SkyFromAtmosphere;
+        m_pMeshFloor->Draw(cmd);
 
-    pSkyShader->Bind(cmd);
-    m_pMeshSky->Bind(cmd);
-    vkCmdPushConstants(cmd, pSkyShader->GetLayoutHandle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(CameraMatricesPC), &camMatrices);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pSkyShader->GetLayoutHandle(), 0, 1,
-        &m_vDescriptorSetsSky[m_CurrentFrame].GetHandle(), 0, nullptr);
+        // -- Sky Objects --
+        Pipeline* pSkyShader;
+        if (camHeight >= m_OuterRadius) pSkyShader = &m_SkyFromSpace;
+        else pSkyShader = &m_SkyFromAtmosphere;
 
-    m_pMeshSky->Draw(cmd);
+        pSkyShader->Bind(cmd);
+        m_pMeshSky->Bind(cmd);
+        vkCmdPushConstants(cmd, pSkyShader->GetLayoutHandle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(CameraMatricesPC), &camMatrices);
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pSkyShader->GetLayoutHandle(), 0, 1,
+            &m_vDescriptorSetsSky[m_CurrentFrame].GetHandle(), 0, nullptr);
+
+        m_pMeshSky->Draw(cmd);
+    }
+    EndRenderTarget();
+
+    if (!m_UseExposure)
+        return;
+
+    // Transition to be readable
+    renderImage.TransitionLayout(cmd,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+        VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
+    SetRenderTarget(m_pContext->GetSwapchainImageViews()[imageIndex], VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL);
+    {
+        Exposure exposure
+        {
+            .exposure = m_Exposure,
+            .use = static_cast<float>(m_UseExposure)
+        };
+        m_PostProcess.Bind(cmd);
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PostProcess.GetLayoutHandle(), 0, 1, 
+            &m_vDescriptorSetsPostProcess[m_CurrentFrame].GetHandle(), 0, nullptr);
+        vkCmdPushConstants(cmd, m_PostProcess.GetLayoutHandle(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(Exposure), &exposure);
+        vkCmdDraw(cmd, 3, 1, 0, 0);
+    }
+    EndRenderTarget();
 }
 void ashen::Renderer::EndFrame(uint32_t imageIndex) const
 {
     VkCommandBuffer cmd = m_vCommandBuffers[m_CurrentFrame];
-    vkCmdEndRendering(cmd);
 
     VkImageMemoryBarrier presentBarrier{};
 	presentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -767,9 +935,8 @@ void ashen::Renderer::EndFrame(uint32_t imageIndex) const
     );
 
 
-    if (vkEndCommandBuffer(cmd) != VK_SUCCESS) {
+    if (vkEndCommandBuffer(cmd) != VK_SUCCESS)
         throw std::runtime_error("Failed to record command buffer!");
-    }
 }
 
 void ashen::Renderer::OnResize()
@@ -781,14 +948,25 @@ void ashen::Renderer::OnResize()
         m_pWindow->PollEvents();
     }
 
-    VkDevice device = m_pContext->GetDevice();
-    vkDeviceWaitIdle(device);
+    vkDeviceWaitIdle(m_pContext->GetDevice());
     m_pContext->RebuildSwapchain(size);
     CreateDepthResources(m_pContext->GetSwapchainExtent());
+    CreateRenderTargets(m_pContext->GetSwapchainExtent());
 
-    for (const auto& sem : m_vImageAvailableSemaphores) vkDestroySemaphore(device, sem, nullptr);
-    for (const auto& sem : m_vRenderFinishedSemaphores) vkDestroySemaphore(device, sem, nullptr);
-    for (const auto& fence : m_vInFlightFences) vkDestroyFence(device, fence, nullptr);
+    auto count = m_pContext->GetSwapchainImageCount();
+    for (uint32_t i{}; i < count; ++i)
+    {
+        DescriptorSetWriter writer{ *m_pContext };
+        writer
+            .AddImageInfo((m_vRenderTargets)[i].GetView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m_PostProcessSampler)
+            .WriteImages(m_vDescriptorSetsPostProcess[i], 0)
+            .Execute();
+    }
+
+
+    for (const auto& sem : m_vImageAvailableSemaphores) vkDestroySemaphore(m_pContext->GetDevice(), sem, nullptr);
+    for (const auto& sem : m_vRenderFinishedSemaphores) vkDestroySemaphore(m_pContext->GetDevice(), sem, nullptr);
+    for (const auto& fence : m_vInFlightFences) vkDestroyFence(m_pContext->GetDevice(), fence, nullptr);
     CreateSyncObjects();
 
     m_pCamera->AspectRatio = m_pWindow->GetAspectRatio();
@@ -797,6 +975,6 @@ void ashen::Renderer::OnResize()
 void ashen::Renderer::RecordCommandBuffer(uint32_t imageIndex)
 {
     SetupFrame(imageIndex);
-    RenderFrame();
+    RenderFrame(imageIndex);
     EndFrame(imageIndex);
 }

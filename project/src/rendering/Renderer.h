@@ -73,6 +73,8 @@ namespace ashen
         float m_RayleighScaleDepth  { 0.25f };
         float m_MieScaleDepth       { 0.1f };
 
+        float m_Exposure            { 2.0f };
+        bool m_UseExposure          { true };
 
         // -- Meshes --
         std::unique_ptr<Mesh>   m_pMeshFloor;
@@ -108,15 +110,19 @@ namespace ashen
         std::unique_ptr<Mesh> CreateDome(float radius, int segmentsLat, int segmentsLon) const;
 
         // -- Creation --
-        void CreatePipelines();
+        void CreateSamplers();
+        void CreatePipelines(VkFormat renderFormat);
         void CreateDescriptorSets();
         void CreateDepthResources(VkExtent2D extent);
+        void CreateRenderTargets(VkExtent2D extent);
         void CreateCommandBuffers();
         void CreateSyncObjects();
 
         // -- Frame --
-        void SetupFrame(uint32_t imageIndex) const;
-        void RenderFrame();
+        void SetupFrame(uint32_t imageIndex);
+        void SetRenderTarget(VkImageView view, VkImageLayout layouot);
+        void EndRenderTarget();
+        void RenderFrame(uint32_t imageIndex);
         void EndFrame(uint32_t imageIndex) const;
         void RecordCommandBuffer(uint32_t imageIndex);
         void OnResize();
@@ -125,6 +131,11 @@ namespace ashen
         DescriptorPool m_DescriptorPool{};
         std::vector<VkCommandBuffer> m_vCommandBuffers;
         std::vector<Image> m_vDepthImages;
+
+        std::vector<Image>              m_vRenderTargets;
+        Pipeline                        m_PostProcess{ };
+        std::vector<DescriptorSet>      m_vDescriptorSetsPostProcess{ };
+        VkSampler                       m_PostProcessSampler{};
 
         // -- Sync --
         std::vector<VkSemaphore> m_vImageAvailableSemaphores;

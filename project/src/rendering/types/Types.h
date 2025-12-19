@@ -12,6 +12,11 @@ namespace ashen
 		glm::mat4 view;
 		glm::mat4 proj;
 	};
+	struct Exposure
+	{
+		float exposure;
+		float use;
+	};
 
 	// -- Sky --
 	struct SkyVS

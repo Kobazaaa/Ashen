@@ -15,9 +15,7 @@
 //--------------------------------------------------
 ashen::Pipeline::~Pipeline()
 {
-    if (!m_pContext) return;
-	vkDestroyPipelineLayout(m_pContext->GetDevice(), m_Layout, nullptr);
-	vkDestroyPipeline(m_pContext->GetDevice(), m_Pipeline, nullptr);
+    Destroy();
 }
 
 
@@ -42,6 +40,12 @@ void ashen::Pipeline::Bind(VkCommandBuffer cmd) const
 
     vkCmdSetViewport(cmd, 0, 1, &viewport);
     vkCmdSetScissor(cmd, 0, 1, &scissor);
+}
+void ashen::Pipeline::Destroy()
+{
+    if (!m_pContext) return;
+    vkDestroyPipelineLayout(m_pContext->GetDevice(), m_Layout, nullptr);
+    vkDestroyPipeline(m_pContext->GetDevice(), m_Pipeline, nullptr);
 }
 
 //--------------------------------------------------

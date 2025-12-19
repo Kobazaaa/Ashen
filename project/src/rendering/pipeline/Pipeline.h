@@ -39,6 +39,7 @@ namespace ashen
 		//    Functionality
 		//--------------------------------------------------
 		void Bind(VkCommandBuffer cmd) const;
+		void Destroy();
 
 		//--------------------------------------------------
 		//    Accessors & Mutators
