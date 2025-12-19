@@ -294,7 +294,7 @@ void ashen::Renderer::HandleInput()
 
     // -- Light --
     static float azimuth = atan2(m_LightDirection.z, m_LightDirection.x);
-    static float elevation = acos(glm::clamp(m_LightDirection.y, -1.0f, 1.0f));
+    static float elevation = acos(glm::clamp(m_LightDirection.y, -1.0f, 1.0f));;
 
     if (m_pWindow->IsKeyDown(GLFW_KEY_UP))    elevation -= sunDirChange;
     if (m_pWindow->IsKeyDown(GLFW_KEY_DOWN))  elevation += sunDirChange;
@@ -414,11 +414,11 @@ std::unique_ptr<ashen::Mesh> ashen::Renderer::CreateDome(float radius, int segme
             const int next = current + segmentsLon + 1;
 
             indices.push_back(current);
-            indices.push_back(next);
             indices.push_back(current + 1);
+            indices.push_back(next);
 
-            indices.push_back(current + 1);
             indices.push_back(next);
+            indices.push_back(current + 1);
             indices.push_back(next + 1);
         }
     }
@@ -428,7 +428,6 @@ std::unique_ptr<ashen::Mesh> ashen::Renderer::CreateDome(float radius, int segme
         indices
     );
 }
-
 
 // -- Creation --
 void ashen::Renderer::CreateSamplers()
@@ -486,8 +485,7 @@ void ashen::Renderer::CreatePipelines(VkFormat renderFormat)
 
         .SetDepthTest(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS)
 
-        .SetCullMode(VK_CULL_MODE_NONE)
-        .SetFrontFace(VK_FRONT_FACE_CLOCKWISE)
+        .SetCullMode(VK_CULL_MODE_BACK_BIT)
         .SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
         .SetPolygonMode(VK_POLYGON_MODE_FILL)
 
@@ -504,6 +502,7 @@ void ashen::Renderer::CreatePipelines(VkFormat renderFormat)
 	        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
 	        .EndRange()
         .AddDescriptorSet(m_vDescriptorSetsGround.front())
+        .SetCullMode(VK_CULL_MODE_BACK_BIT)
         .SetVertexShader(prefix + "GroundFromSpace" + vert)
         .SetFragmentShader(prefix + "GroundFromSpace" + frag)
         .Build(m_GroundFromSpace);
@@ -515,6 +514,7 @@ void ashen::Renderer::CreatePipelines(VkFormat renderFormat)
 	        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
 	        .EndRange()
         .AddDescriptorSet(m_vDescriptorSetsGround.front())
+        .SetCullMode(VK_CULL_MODE_BACK_BIT)
         .SetVertexShader(prefix + "GroundFromAtmosphere" + vert)
         .SetFragmentShader(prefix + "GroundFromAtmosphere" + frag)
         .Build(m_GroundFromAtmosphere);
@@ -526,6 +526,7 @@ void ashen::Renderer::CreatePipelines(VkFormat renderFormat)
 	        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
 	        .EndRange()
         .AddDescriptorSet(m_vDescriptorSetsSpace.front())
+        .SetCullMode(VK_CULL_MODE_BACK_BIT)
         .SetVertexShader(prefix + "SpaceFromSpace" + vert)
         .SetFragmentShader(prefix + "SpaceFromSpace" + frag)
         .Build(m_SpaceFromSpace);
@@ -537,6 +538,7 @@ void ashen::Renderer::CreatePipelines(VkFormat renderFormat)
 	        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
 	        .EndRange()
         .AddDescriptorSet(m_vDescriptorSetsSpace.front())
+        .SetCullMode(VK_CULL_MODE_BACK_BIT)
         .SetVertexShader(prefix + "SpaceFromAtmosphere" + vert)
         .SetFragmentShader(prefix + "SpaceFromAtmosphere" + frag)
         .Build(m_SpaceFromAtmosphere);
@@ -548,6 +550,7 @@ void ashen::Renderer::CreatePipelines(VkFormat renderFormat)
 	        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
 	        .EndRange()
         .AddDescriptorSet(m_vDescriptorSetsSky.front())
+        .SetCullMode(VK_CULL_MODE_FRONT_BIT)
         .SetVertexShader(prefix + "SkyFromSpace" + vert)
         .SetFragmentShader(prefix + "SkyFromSpace" + frag)
         .SetDepthTest(VK_TRUE, VK_FALSE, VK_COMPARE_OP_LESS)
@@ -562,6 +565,7 @@ void ashen::Renderer::CreatePipelines(VkFormat renderFormat)
 	        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
 	        .EndRange()
         .AddDescriptorSet(m_vDescriptorSetsSky.front())
+        .SetCullMode(VK_CULL_MODE_FRONT_BIT)
         .SetVertexShader(prefix + "SkyFromAtmosphere" + vert)
         .SetFragmentShader(prefix + "SkyFromAtmosphere" + frag)
         .SetDepthTest(VK_TRUE, VK_FALSE, VK_COMPARE_OP_LESS)
@@ -778,7 +782,7 @@ void ashen::Renderer::CreateSyncObjects()
 }
 
 // -- Frame --
-void ashen::Renderer::SetupFrame(uint32_t imageIndex)
+void ashen::Renderer::SetupFrame(uint32_t imageIndex) const
 {
     VkCommandBuffer cmd = m_vCommandBuffers[m_CurrentFrame];
     vkResetCommandBuffer(cmd, 0);
@@ -814,7 +818,7 @@ void ashen::Renderer::SetupFrame(uint32_t imageIndex)
         1, &presentBarrier
     );
 }
-void ashen::Renderer::SetRenderTarget(VkImageView view, VkImageLayout layouot)
+void ashen::Renderer::SetRenderTarget(VkImageView view, VkImageLayout layout)
 {
     VkCommandBuffer cmd = m_vCommandBuffers[m_CurrentFrame];
     Image& depthImage = m_vDepthImages[m_CurrentFrame];
@@ -823,7 +827,7 @@ void ashen::Renderer::SetRenderTarget(VkImageView view, VkImageLayout layouot)
     VkRenderingAttachmentInfo colorAttachment{};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
     colorAttachment.imageView = view;
-    colorAttachment.imageLayout = layouot;
+    colorAttachment.imageLayout = layout;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     colorAttachment.clearValue.color = { {0.f, 0.f, 0.f, 1.0f} };
@@ -847,7 +851,7 @@ void ashen::Renderer::SetRenderTarget(VkImageView view, VkImageLayout layouot)
 
     vkCmdBeginRendering(cmd, &renderingInfo);
 }
-void ashen::Renderer::EndRenderTarget()
+void ashen::Renderer::EndRenderTarget() const
 {
     VkCommandBuffer cmd = m_vCommandBuffers[m_CurrentFrame];
     vkCmdEndRendering(cmd);

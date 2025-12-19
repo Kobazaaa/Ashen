@@ -119,9 +119,9 @@ namespace ashen
         void CreateSyncObjects();
 
         // -- Frame --
-        void SetupFrame(uint32_t imageIndex);
-        void SetRenderTarget(VkImageView view, VkImageLayout layouot);
-        void EndRenderTarget();
+        void SetupFrame(uint32_t imageIndex) const;
+        void SetRenderTarget(VkImageView view, VkImageLayout layout);
+        void EndRenderTarget() const;
         void RenderFrame(uint32_t imageIndex);
         void EndFrame(uint32_t imageIndex) const;
         void RecordCommandBuffer(uint32_t imageIndex);
