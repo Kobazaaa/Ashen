@@ -850,7 +850,7 @@ void ashen::Renderer::RenderFrame(uint32_t imageIndex)
 	        VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
     }
 
-	SetRenderTarget(m_UseExposure ? renderImage.GetView() : m_pContext->GetSwapchainImageViews()[imageIndex], m_UseExposure ? renderImage.GetCurrentLayout() : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	SetRenderTarget(m_UseExposure ? renderImage.GetView() : m_pContext->GetSwapchainImageViews()[imageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     {
         // -- Space Objects --
 
@@ -891,7 +891,7 @@ void ashen::Renderer::RenderFrame(uint32_t imageIndex)
         VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
         VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
-    SetRenderTarget(m_pContext->GetSwapchainImageViews()[imageIndex], VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL);
+    SetRenderTarget(m_pContext->GetSwapchainImageViews()[imageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     {
         Exposure exposure
         {

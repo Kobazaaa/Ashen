@@ -21,7 +21,7 @@ void main()
     float cosine = dot(lightDir, fragCoord) / length(fragCoord);
     float cosine2 = cosine * cosine;
 
-    vec3 c = fragColor0 
+    vec3 c = GetRayleighPhase(cosine2) * fragColor0 
             + GetMiePhase(cosine, cosine2, g, g2) * fragColor1;
     
     outColor = vec4(c, c.b);
