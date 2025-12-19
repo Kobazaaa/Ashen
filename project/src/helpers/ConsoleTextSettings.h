@@ -42,6 +42,7 @@
 #define NO_UNDERLINE_TXT	"\033[24m"
 #define REVERSE_TXT			"\033[7m"
 #define POSITIVE_TXT		"\033[27m"
+#define CLEAR_LINE			"\033[2K"
 
 #define ERROR_TXT BRIGHT_RED_TXT
 #define WARNING_TXT BRIGHT_YELLOW_TXT

@@ -3,10 +3,14 @@
 #include "Image.h"
 #include "Timer.h"
 #include "Types.h"
+#include "ConsoleTextSettings.h"
 
 // -- Math Includes --
 #define GLM_ENABLE_EXPERIMENTAL
 #include "glm/gtx/norm.hpp"
+
+// -- Standard Library --
+#include <iostream>
 
 //--------------------------------------------------
 //    Constructor & Destructor
@@ -55,7 +59,7 @@ ashen::Renderer::~Renderer()
 //--------------------------------------------------
 void ashen::Renderer::Update()
 {
-    m_pCamera->Update();
+    HandleInput();
 
     SkyVS skyVs
     {
@@ -197,6 +201,120 @@ void ashen::Renderer::Render()
         throw std::runtime_error("Failed to present Swap Chain Image!");
 
     m_CurrentFrame = (m_CurrentFrame + 1) % m_vInFlightFences.size();
+}
+void ashen::Renderer::HandleInput()
+{
+    // -- Camera --
+    m_pCamera->Update();
+
+    // -- Samples --
+    static bool kPAddPrev = false;
+    static bool kPSubtractPrev = false;
+    const bool kpAdd = m_pWindow->IsKeyDown(GLFW_KEY_KP_ADD);
+    const bool kpSub = m_pWindow->IsKeyDown(GLFW_KEY_KP_SUBTRACT);
+    if (kpAdd && !kPAddPrev) ++m_SampleCount;
+    if (kpSub && !kPSubtractPrev) --m_SampleCount;
+    kPAddPrev = kpAdd;
+    kPSubtractPrev = kpSub;
+
+    // -- Scattering --
+    if (m_pWindow->IsKeyDown(GLFW_KEY_1))
+    {
+        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_Kr = std::max(0.0f, m_Kr - 0.0001f);
+        else m_Kr += 0.0001f;
+        m_Kr4PI = m_Kr * 4.0f * std::numbers::pi_v<float>;
+    }
+    else if (m_pWindow->IsKeyDown(GLFW_KEY_2))
+    {
+        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_Km = std::max(0.0f, m_Km - 0.0001f);
+        else m_Km += 0.0001f;
+        m_Km4PI = m_Km * 4.0f * std::numbers::pi_v<float>;
+    }
+    else if (m_pWindow->IsKeyDown(GLFW_KEY_3))
+    {
+        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_g = std::max(-1.0f, m_g - 0.001f);
+        else m_g = std::min(m_g + 0.001f, 1.0f);
+    }
+    else if (m_pWindow->IsKeyDown(GLFW_KEY_4))
+    {
+        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_ESun = std::max(0.0f, m_ESun - 0.1f);
+        else m_ESun += 0.1f;
+    }
+
+    // -- Wavelengths --
+    else if (m_pWindow->IsKeyDown(GLFW_KEY_5))
+    {
+        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_Wavelength[0] = std::max(0.001f, m_Wavelength[0] - 0.001f);
+        else m_Wavelength[0] += 0.001f;
+        m_Wavelength4[0] = powf(m_Wavelength[0], 4.0f);
+    }
+    else if (m_pWindow->IsKeyDown(GLFW_KEY_6))
+    {
+        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_Wavelength[1] = std::max(0.001f, m_Wavelength[1] - 0.001f);
+        else m_Wavelength[1] += 0.001f;
+        m_Wavelength4[1] = powf(m_Wavelength[1], 4.0f);
+    }
+    else if (m_pWindow->IsKeyDown(GLFW_KEY_7))
+    {
+        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_Wavelength[2] = std::max(0.001f, m_Wavelength[2] - 0.001f);
+        else m_Wavelength[2] += 0.001f;
+        m_Wavelength4[2] = powf(m_Wavelength[2], 4.0f);
+    }
+
+    PrintStats();
+}
+void ashen::Renderer::PrintStats()
+{
+    // -- FPS calculation over 1 second --
+    static float elapsedTime = 0.f;
+    static int frames = 0;
+    static float fps = 0.f;
+
+    elapsedTime += Timer::GetDeltaSeconds();
+    frames++;
+
+    if (elapsedTime >= 1.0f)
+    {
+        fps = static_cast<float>(frames) / elapsedTime;
+        frames = 0;
+        elapsedTime = 0.f;
+    }
+
+
+    // -- Move cursor up to overwrite previous stats --
+    static bool first = true;
+    if (!first)
+		std::cout << "\033[9A";
+    first = false;
+
+    // -- Print stats with keybind hints --
+    std::cout << "--- STATS OVERVIEW ---\n";
+    std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key + / Key -]" << RESET_TXT
+				<< "\t\t\tSamples: " << m_SampleCount << "\n";
+
+    std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key 1 / Shift + 1]"<< RESET_TXT
+				<< "\t\tKr: " << m_Kr << "\n";
+
+    std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key 2 / Shift + 2]" << RESET_TXT
+				<< "\t\tKm : " << m_Km << "\n";
+
+    std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key 3 / Shift + 3]" << RESET_TXT
+				<< "\t\tg: " << m_g << "\n";
+
+    std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key 4 / Shift + 4]" << RESET_TXT
+				<< "\t\tESun: " << m_ESun << "\n";
+
+    std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key 5-7 / Shift + 5-7]" << RESET_TXT
+				<< "\t\tWavelengths: [" << 
+						BRIGHT_RED_TXT << m_Wavelength[0] << RESET_TXT << ", " << 
+						BRIGHT_GREEN_TX << m_Wavelength[1] << RESET_TXT << ", " << 
+						BRIGHT_BLUE_TXT << m_Wavelength[2] << RESET_TXT << "]\n";
+
+    std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[X]" << RESET_TXT
+				<< "\t\t\t\tFPS: " << DARK_YELLOW_TXT << fps  << RESET_TXT << "\n";
+
+    std::cout << "--- STATS OVERVIEW ---\n";
+    std::cout << std::flush;
 }
 
 
@@ -663,10 +781,19 @@ void ashen::Renderer::OnResize()
         m_pWindow->PollEvents();
     }
 
+    VkDevice device = m_pContext->GetDevice();
+    vkDeviceWaitIdle(device);
     m_pContext->RebuildSwapchain(size);
     CreateDepthResources(m_pContext->GetSwapchainExtent());
+
+    for (const auto& sem : m_vImageAvailableSemaphores) vkDestroySemaphore(device, sem, nullptr);
+    for (const auto& sem : m_vRenderFinishedSemaphores) vkDestroySemaphore(device, sem, nullptr);
+    for (const auto& fence : m_vInFlightFences) vkDestroyFence(device, fence, nullptr);
+    CreateSyncObjects();
+
     m_pCamera->AspectRatio = m_pWindow->GetAspectRatio();
 }
+
 void ashen::Renderer::RecordCommandBuffer(uint32_t imageIndex)
 {
     SetupFrame(imageIndex);

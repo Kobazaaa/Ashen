@@ -131,6 +131,10 @@ namespace ashen
         std::vector<VkSemaphore> m_vRenderFinishedSemaphores;
         std::vector<VkFence> m_vInFlightFences;
         uint32_t m_CurrentFrame = 0;
+
+        // -- Helper --
+        void HandleInput();
+        void PrintStats();
     };
 
 }
