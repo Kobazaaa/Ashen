@@ -41,7 +41,7 @@ namespace ashen
         float Sensitivity{ 0.1f };
         float Fov{60.f};
         float AspectRatio{};
-        float NearPlane{0.01f};
+        float NearPlane{0.001f};
         float FarPlane{10000.f};
 
         glm::vec3 Position{};

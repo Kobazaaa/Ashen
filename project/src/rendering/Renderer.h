@@ -74,7 +74,7 @@ namespace ashen
         float m_MieScaleDepth       { 0.1f };
 
         float m_Exposure            { 2.0f };
-        bool m_UseExposure          { true };
+        bool m_UseHDR          { true };
 
         // -- Meshes --
         std::unique_ptr<Mesh>   m_pMeshFloor;

@@ -3,7 +3,6 @@
 layout(push_constant) uniform PushConstants
 {
     float exposure;
-    bool use;
 } pc;
 
 

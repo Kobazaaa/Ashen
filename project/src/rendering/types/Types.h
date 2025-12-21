@@ -15,7 +15,6 @@ namespace ashen
 	struct Exposure
 	{
 		float exposure;
-		float use;
 	};
 
 	// -- Sky --

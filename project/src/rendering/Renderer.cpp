@@ -20,7 +20,7 @@ ashen::Renderer::Renderer(Window* pWindow)
 	, m_pContext(std::make_unique<VulkanContext>(pWindow))
 {
     m_pCamera = std::make_unique<Camera>(pWindow);
-    m_pCamera->Position.y = m_InnerRadius + (m_OuterRadius - m_InnerRadius) * 0.1f;
+    m_pCamera->Position.y = m_InnerRadius + (m_OuterRadius - m_InnerRadius) * 0.01f;
     m_pCamera->Speed /= 10;
 	CreateSyncObjects();
 
@@ -42,7 +42,7 @@ ashen::Renderer::Renderer(Window* pWindow)
     CreateRenderTargets(m_pContext->GetSwapchainExtent());
     CreateDescriptorSets();
 
-    CreatePipelines(m_UseExposure ? m_vRenderTargets.front().GetFormat() : m_pContext->GetSwapchainFormat());
+    CreatePipelines(m_UseHDR ? m_vRenderTargets.front().GetFormat() : m_pContext->GetSwapchainFormat());
     CreateCommandBuffers();
 }
 ashen::Renderer::~Renderer()
@@ -236,8 +236,8 @@ void ashen::Renderer::HandleInput()
     const bool tabCurr = m_pWindow->IsKeyDown(GLFW_KEY_TAB);
     if (tabCurr && !tabPrev)
     {
-        m_UseExposure = !m_UseExposure;
-        CreatePipelines(m_UseExposure ? m_vRenderTargets.front().GetFormat() : m_pContext->GetSwapchainFormat());
+        m_UseHDR = !m_UseHDR;
+        CreatePipelines(m_UseHDR ? m_vRenderTargets.front().GetFormat() : m_pContext->GetSwapchainFormat());
     }
     tabPrev = tabCurr;
 
@@ -357,7 +357,7 @@ void ashen::Renderer::PrintStats()
 						BRIGHT_BLUE_TXT << m_Wavelength[2] << RESET_TXT << "]\n";
 
     std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Tab]" << RESET_TXT
-				<< "\t\t\t\tHDR: " << (m_UseExposure ? BRIGHT_GREEN_TX : BRIGHT_RED_TXT) << (m_UseExposure ? "True" : "False") << RESET_TXT << "\n";
+				<< "\t\t\t\tHDR: " << (m_UseHDR ? BRIGHT_GREEN_TX : BRIGHT_RED_TXT) << (m_UseHDR ? "True" : "False") << RESET_TXT << "\n";
 
     std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key 8 / Shift + 8]" << RESET_TXT
         << "\t\tExposure: " << m_Exposure << "\n";
@@ -866,7 +866,7 @@ void ashen::Renderer::RenderFrame(uint32_t imageIndex)
     CameraMatricesPC camMatrices{ m_pCamera->GetViewMatrix(), m_pCamera->GetProjectionMatrix() };
 
     // Transition to be renderable
-    if (m_UseExposure)
+    if (m_UseHDR)
     {
 	    renderImage.TransitionLayout(cmd,
 	        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -874,7 +874,7 @@ void ashen::Renderer::RenderFrame(uint32_t imageIndex)
 	        VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
     }
 
-	SetRenderTarget(m_UseExposure ? renderImage.GetView() : m_pContext->GetSwapchainImageViews()[imageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	SetRenderTarget(m_UseHDR ? renderImage.GetView() : m_pContext->GetSwapchainImageViews()[imageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     {
         // -- Space Objects --
 
@@ -906,7 +906,7 @@ void ashen::Renderer::RenderFrame(uint32_t imageIndex)
     }
     EndRenderTarget();
 
-    if (!m_UseExposure)
+    if (!m_UseHDR)
         return;
 
     // Transition to be readable
@@ -920,7 +920,6 @@ void ashen::Renderer::RenderFrame(uint32_t imageIndex)
         Exposure exposure
         {
             .exposure = m_Exposure,
-            .use = static_cast<float>(m_UseExposure)
         };
         m_PostProcess.Bind(cmd);
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PostProcess.GetLayoutHandle(), 0, 1, 
