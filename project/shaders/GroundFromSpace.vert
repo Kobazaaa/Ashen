@@ -1,7 +1,6 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 #include "Helper_Math.glsl"
-#include "Helper_Scattering.glsl"
 
 layout(push_constant) uniform PushConstants
 {
@@ -9,39 +8,13 @@ layout(push_constant) uniform PushConstants
     mat4 proj;
 } pc;
 
-layout(set = 0, binding = 0) uniform Parameters
-{
-    vec3 cameraPos;			        // current camera pos
-    float cameraHeight;				// current camera height
-    
-    vec3 lightDir;				    // direction of the sunlight
-    float cameraHeight2;			// cameraHeight^2
-    
-    vec3 invWaveLength;		        // 1 / (wavelength^4) for RGB
-    float sampleCount;		        // nr of samples along the ray
-    
-    float outerRadius;				// outer atmosphere radius
-    float outerRadius2;				// outerRadius^2
-    float innerRadius;				// inner planetary radius
-    float innerRadius2;				// innerRadius^2
-    
-    float scale;					// 1 / (outerRadius - innerRadius)
-    float scaleDepth;				// scale depth (the altitude at which the average atmospheric density is found)
-    float scaleOverScaleDepth;		// scale / scaleDepth
-    float invScaleDepth;		    // inverse of scale depth
-    
-    float krESun;					// Kr * ESun
-    float kmESun;					// Km * ESun
-    float kr4PI;					// Kr * 4 * PI
-    float km4PI;					// Km * 4 * PI
-};
+#include "Helper_Scattering.glsl"
 
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inColor;
 
 layout(location = 0) out vec3 outColor;
 layout(location = 1) out vec3 outAttenuation;
-
 
 // This shader is used to render the ground when the camera is in space
 // This means that the ray along which we will sample starts at the intersection point with the skydome
@@ -85,9 +58,9 @@ void main()
     for(int i = 0; i < sampleCount; ++i)
     {
         // Calculate the sample depth
-        float sampleHeight = length(samplePoint);
-        float sampleHeightOffGround = sampleHeight - innerRadius;
-        float sampleDepth = exp(-sampleHeightOffGround * scaleOverScaleDepth);
+        float sampleHeightOffGround = length(samplePoint) - innerRadius;
+        float normalizedHeight = sampleHeightOffGround * scale;
+        float sampleDepth = DensityFunction(normalizedHeight, scaleDepth);
 
         float scatter = sampleDepth * temp - cameraOffset;
         attentuation = exp(-scatter * (invWaveLength * kr4PI + km4PI));
