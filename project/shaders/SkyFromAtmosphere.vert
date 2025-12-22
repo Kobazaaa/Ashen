@@ -38,9 +38,9 @@ layout(set = 0, binding = 0) uniform Parameters
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inColor;
 
-layout(location = 0) out vec3 fragColor0;
-layout(location = 1) out vec3 fragColor1;
-layout(location = 2) out vec3 fragCoord;
+layout(location = 0) out vec3 outRayleighColor;
+layout(location = 1) out vec3 outMieColor;
+layout(location = 2) out vec3 outDirectionToCam;
 
 
 // This shader is used to render the sky dome when the camera is in the atmosphere
@@ -94,8 +94,8 @@ void main()
     // Finally, scale the Mie and Rayleigh Colors
     gl_Position = pc.proj * pc.view * vec4(inPosition, 1.0);
 
-    fragColor0 = frontColor * (invWaveLength * krESun);
-    fragColor1 = frontColor * kmESun;
+    outRayleighColor = frontColor * (invWaveLength * krESun);
+    outMieColor = frontColor * kmESun;
 
-    fragCoord = cameraPos - inPosition;
+    outDirectionToCam = cameraPos - inPosition;
 }

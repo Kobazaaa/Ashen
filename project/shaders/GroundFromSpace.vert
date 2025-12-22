@@ -39,8 +39,8 @@ layout(set = 0, binding = 0) uniform Parameters
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inColor;
 
-layout(location = 0) out vec3 fragColor0;
-layout(location = 1) out vec3 fragColor1;
+layout(location = 0) out vec3 outColor;
+layout(location = 1) out vec3 outAttenuation;
 
 
 // This shader is used to render the ground when the camera is in space
@@ -102,6 +102,6 @@ void main()
     // Finally, scale the Mie and Rayleigh Colors
     gl_Position = pc.proj * pc.view * vec4(inPosition, 1.0);
 
-    fragColor0 = frontColor * (invWaveLength * krESun + kmESun);
-    fragColor1 = attentuation;
+    outColor = frontColor * (invWaveLength * krESun + kmESun);
+    outAttenuation = attentuation;
 }

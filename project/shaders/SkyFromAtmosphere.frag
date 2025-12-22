@@ -9,20 +9,20 @@ layout(set = 0, binding = 1) uniform Parameters
     float g2;						// g^2
 };
 
-layout(location = 0) in vec3 fragColor0;
-layout(location = 1) in vec3 fragColor1;
-layout(location = 2) in vec3 fragCoord;
+layout(location = 0) in vec3 inRayleighColor;
+layout(location = 1) in vec3 inMieColor;
+layout(location = 2) in vec3 inDirectionToCam;
 
 layout(location = 0) out vec4 outColor;
 
 void main()
 {
     // Angle between light and -view direction
-    float cosine = dot(lightDir, fragCoord) / length(fragCoord);
+    float cosine = dot(lightDir, inDirectionToCam) / length(inDirectionToCam);
     float cosine2 = cosine * cosine;
 
-    vec3 c = GetRayleighPhase(cosine2) * fragColor0 
-            + GetMiePhase(cosine, cosine2, g, g2) * fragColor1;
+    vec3 c = GetRayleighPhase(cosine2) * inRayleighColor 
+            + GetMiePhase(cosine, cosine2, g, g2) * inMieColor;
     
     outColor = vec4(c, c.b);
 }
