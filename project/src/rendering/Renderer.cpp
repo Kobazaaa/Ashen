@@ -76,6 +76,8 @@ void ashen::Renderer::Update()
         .invWaveLength = 1.f / m_Wavelength4,
         .sampleCount = static_cast<float>(m_SampleCount),
 
+        .kOzoneExt = m_UseOzone ? m_kOzoneExt : glm::vec3(0),
+
         .outerRadius = m_OuterRadius,
         .outerRadius2 = m_OuterRadius * m_OuterRadius,
         .innerRadius = m_InnerRadius,
@@ -84,7 +86,6 @@ void ashen::Renderer::Update()
         .scale = m_Scale,
         .scaleDepth = m_RayleighScaleDepth,
 
-        .koe = m_UseOzone ? m_Koe : 0.f,
         .krESun = m_Kr * m_ESun,
         .kmESun = m_Km * m_ESun,
         .kr4PI = m_Kr4PI,
@@ -112,6 +113,8 @@ void ashen::Renderer::Update()
     	.invWaveLength = 1.f / m_Wavelength4,
         .sampleCount = static_cast<float>(m_SampleCount),
 
+    	.kOzoneExt = m_UseOzone ? m_kOzoneExt : glm::vec3(0),
+
         .outerRadius = m_OuterRadius,
         .outerRadius2 = m_OuterRadius * m_OuterRadius,
         .innerRadius = m_InnerRadius,
@@ -120,7 +123,6 @@ void ashen::Renderer::Update()
         .scale = m_Scale,
         .scaleDepth = m_RayleighScaleDepth,
 
-    	.koe = m_UseOzone ? m_Koe : 0.f,
         .krESun = m_Kr * m_ESun,
         .kmESun = m_Km * m_ESun,
         .kr4PI = m_Kr4PI,
@@ -313,10 +315,25 @@ void ashen::Renderer::HandleInput()
     if (oCurr && !oPrev)
         m_UseOzone = !m_UseOzone;
     oPrev = oCurr;
-    if (m_pWindow->IsKeyDown(GLFW_KEY_9))
+    if (m_pWindow->IsKeyDown(GLFW_KEY_G))
     {
-        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_Koe = std::max(0.0f, m_Koe - koeChange);
-        else m_Koe += koeChange;
+        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_kOzoneExt.x = std::max(0.f, m_kOzoneExt.x - koeChange);
+        else m_kOzoneExt.x += koeChange;
+    }
+    if (m_pWindow->IsKeyDown(GLFW_KEY_H))
+    {
+        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_kOzoneExt.y = std::max(0.f, m_kOzoneExt.y - koeChange);
+        else m_kOzoneExt.y += koeChange;
+    }
+    if (m_pWindow->IsKeyDown(GLFW_KEY_J))
+    {
+        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_kOzoneExt.z = std::max(0.f, m_kOzoneExt.z - koeChange);
+        else m_kOzoneExt.z += koeChange;
+    }
+    if (m_pWindow->IsKeyDown(GLFW_KEY_K))
+    {
+        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_kOzoneExt = glm::max(glm::vec3(0), m_kOzoneExt - koeChange);
+        else m_kOzoneExt += koeChange;
     }
 
 
@@ -378,8 +395,11 @@ void ashen::Renderer::PrintStats()
 	std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[O]" << RESET_TXT
 				<< "\t\t\t\tOzone: " << (m_UseOzone ? BRIGHT_GREEN_TX : BRIGHT_RED_TXT) << (m_UseOzone ? "True" : "False") << RESET_TXT << "\n";
 
-    std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key 9 / Shift + 9]" << RESET_TXT
-        << "\t\tOzone Extinction: " << m_Koe << "\n";
+    std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key GHJK / Shift + GHJK]" << RESET_TXT
+        << "\t\tOzone Extinction: [" <<
+				        BRIGHT_RED_TXT << m_kOzoneExt[0] << RESET_TXT << ", " <<
+				        BRIGHT_GREEN_TX << m_kOzoneExt[1] << RESET_TXT << ", " <<
+				        BRIGHT_BLUE_TXT << m_kOzoneExt[2] << RESET_TXT << "]\n";
 
     std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[X]" << RESET_TXT
 				<< "\t\t\t\tFPS: " << DARK_YELLOW_TXT << fps  << RESET_TXT << "\n";

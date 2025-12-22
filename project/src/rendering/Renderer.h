@@ -50,9 +50,9 @@ namespace ashen
         // -- Settings --
         int m_SampleCount           { 16 };
 
-        float m_Kr                  { 0.0025f };        // Scattering constant for Rayleigh scattering
-        float m_Km                  { 0.0010f };        // Scattering constant for Mie scattering
-        float m_Koe                 { 0.0010f };        // Ozone Extinction Coefficient
+        float m_Kr                  { 0.0025f };                        // Scattering constant for Rayleigh scattering
+        float m_Km                  { 0.0010f };                        // Scattering constant for Mie scattering
+        glm::vec3 m_kOzoneExt       { 0.003, 0.004, 0.01 };             // Ozone Extinction Coefficient
     	
         float m_Kr4PI               { m_Kr * 4.0f * std::numbers::pi_v<float> };
     	float m_Km4PI               { m_Km * 4.0f * std::numbers::pi_v<float> };

@@ -9,6 +9,8 @@ layout(set = 0, binding = 0) uniform Parameters
     vec3 invWaveLength;		        // 1 / (wavelength^4) for RGB
     float sampleCount;		        // nr of samples along the ray
     
+    vec3 kOzoneExt;		        	// Ozone Extinction Coefficient
+    
     float outerRadius;				// outer atmosphere radius
     float outerRadius2;				// outerRadius^2
     float innerRadius;				// inner planetary radius
@@ -16,8 +18,7 @@ layout(set = 0, binding = 0) uniform Parameters
     
     float scale;					// 1 / (outerRadius - innerRadius)
     float scaleDepth;				// scale depth (the altitude at which the average atmospheric density is found)
-
-    float koe;		                // Ozone Extinction Coefficient
+    
     float krESun;					// Kr * ESun
     float kmESun;					// Km * ESun
     float kr4PI;					// Kr * 4 * PI
@@ -54,3 +55,4 @@ float ComputeOpticalDepth(vec3 rayDir, vec3 startPos, float scaleDepth, float de
     float opticalDepth = density * Scale(cosAngle, scaleDepth);
     return opticalDepth;
 }
+

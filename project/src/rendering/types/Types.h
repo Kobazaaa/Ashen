@@ -29,6 +29,8 @@ namespace ashen
 		glm::vec3 invWaveLength;		// 1 / (wavelength^4) for RGB
 		float sampleCount;		        // nr of samples along the ray
 
+		glm::vec3 kOzoneExt;			// Ozone Extinction Coefficient
+
 		float outerRadius;				// outer atmosphere radius
 		float outerRadius2;				// outerRadius^2
 		float innerRadius;				// inner planetary radius
@@ -37,7 +39,7 @@ namespace ashen
 		float scale;					// 1 / (outerRadius - innerRadius)
 		float scaleDepth;				// scale depth (the altitude at which the average atmospheric density is found)
 
-		float koe;		                // Ozone Extinction Coefficient
+
 		float krESun;					// Kr * ESun
 		float kmESun;					// Km * ESun
 		float kr4PI;					// Kr * 4 * PI
@@ -62,6 +64,8 @@ namespace ashen
 		glm::vec3 invWaveLength;		// 1 / (wavelength^4) for RGB
 		float sampleCount;		        // nr of samples along the ray
 
+		glm::vec3 kOzoneExt;			// Ozone Extinction Coefficient
+
 		float outerRadius;				// outer atmosphere radius
 		float outerRadius2;				// outerRadius^2
 		float innerRadius;				// inner planetary radius
@@ -70,7 +74,6 @@ namespace ashen
 		float scale;					// 1 / (outerRadius - innerRadius)
 		float scaleDepth;				// scale depth (the altitude at which the average atmospheric density is found)
 
-		float koe;		                // Ozone Extinction Coefficient
 		float krESun;					// Kr * ESun
 		float kmESun;					// Km * ESun
 		float kr4PI;					// Kr * 4 * PI

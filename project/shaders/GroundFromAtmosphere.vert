@@ -59,7 +59,10 @@ void main()
         float sampleDepth = DensityFunction(normalizedHeight, scaleDepth);
 
         float scatter = sampleDepth * temp - cameraOffset;
-        attentuation = exp(-scatter * (invWaveLength * kr4PI + km4PI));
+        attentuation = exp(-(
+                    scatter * invWaveLength * kr4PI + 
+                    scatter * km4PI +
+                    scatter * kOzoneExt));
 
         // Add color
         frontColor += attentuation * (sampleDepth * scaledLength);
