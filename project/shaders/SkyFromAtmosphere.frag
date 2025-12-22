@@ -1,6 +1,6 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
-#include "Functions.glsl"
+#include "Helper_PhaseFunctions.glsl"
 
 layout(set = 0, binding = 1) uniform Parameters
 {

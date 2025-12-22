@@ -59,10 +59,10 @@ namespace ashen
         float m_ESun                { 20.f };           // Strength of the Sun
         float m_g                   { -0.990f };        // Scattering constant g that affects symmetry
 
-
         float m_InnerRadius         { 10.f };
-        float m_OuterRadius         { 10.25f };
-        float m_Scale               { 1.f / (m_OuterRadius - m_InnerRadius) };
+        float m_OuterRadius         { m_InnerRadius + m_InnerRadius * 0.025f };
+        float m_AtmosphereThickness { m_OuterRadius - m_InnerRadius };
+        float m_Scale               { 1.f / m_AtmosphereThickness };
 
         glm::vec3 m_Light           { 0.f, 0.f, 1000.f };
         glm::vec3 m_LightDirection  { glm::normalize(m_Light) };

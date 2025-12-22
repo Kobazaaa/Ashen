@@ -1,6 +1,7 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
-#include "Functions.glsl"
+#include "Helper_Math.glsl"
+#include "Helper_Scattering.glsl"
 
 layout(push_constant) uniform PushConstants
 {
