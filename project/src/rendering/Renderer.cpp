@@ -19,9 +19,25 @@ ashen::Renderer::Renderer(Window* pWindow)
 	: m_pWindow(pWindow)
 	, m_pContext(std::make_unique<VulkanContext>(pWindow))
 {
+    // -- Camera --
     m_pCamera = std::make_unique<Camera>(pWindow);
     m_pCamera->Position.y = m_InnerRadius + (m_OuterRadius - m_InnerRadius) * 0.01f;
     m_pCamera->Speed /= 10;
+    m_pCamera->Rotation = { -20.f, 0.f, 0.f };
+
+    // -- Lights --
+    m_vLightDirections.resize(3);
+
+    float angle = 0.f;
+    m_vLightDirections[0] = glm::vec3(0.f, sin(glm::radians(angle)), cos(glm::radians(angle)));
+    angle = 20.f;
+    m_vLightDirections[1] = glm::vec3(0.f, sin(glm::radians(angle)), cos(glm::radians(angle)));
+    angle = 40.f;
+    m_vLightDirections[2] = glm::vec3(0.f, sin(glm::radians(angle)), cos(glm::radians(angle)));
+
+    m_LightDirection = m_vLightDirections[m_LightIndex];
+
+    // -- Render --
 	CreateSyncObjects();
 
     m_pMeshFloor    = CreateDome(m_InnerRadius, 250, 250);
@@ -296,18 +312,30 @@ void ashen::Renderer::HandleInput()
 
     // -- Light --
     static float azimuth = atan2(m_LightDirection.z, m_LightDirection.x);
-    static float elevation = acos(glm::clamp(m_LightDirection.y, -1.0f, 1.0f));;
+    static float elevation = acos(glm::clamp(m_LightDirection.y, -1.0f, 1.0f));
 
     if (m_pWindow->IsKeyDown(GLFW_KEY_UP))    elevation -= sunDirChange;
     if (m_pWindow->IsKeyDown(GLFW_KEY_DOWN))  elevation += sunDirChange;
     if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT))  azimuth += sunDirChange;
     if (m_pWindow->IsKeyDown(GLFW_KEY_RIGHT)) azimuth -= sunDirChange;
 
+    static bool nPrev = false;
+    const bool nCurr = m_pWindow->IsKeyDown(GLFW_KEY_9);
+    if (nCurr && !nPrev)
+    {
+        m_LightIndex = (m_LightIndex + 1) % static_cast<uint32_t>(m_vLightDirections.size());
+        m_LightDirection = m_vLightDirections[m_LightIndex];
+        azimuth = atan2(m_LightDirection.z, m_LightDirection.x);
+        elevation = acos(glm::clamp(m_LightDirection.y, -1.0f, 1.0f));
+    }
+    nPrev = nCurr;
+
     m_LightDirection = glm::normalize(glm::vec3(
-       sin(elevation) * cos(azimuth),
-       cos(elevation),
-       sin(elevation) * sin(azimuth))
+        sin(elevation) * cos(azimuth),
+        cos(elevation),
+        sin(elevation) * sin(azimuth))
     );
+
 
     // -- Ozone --
     static bool oPrev = false;
@@ -360,7 +388,7 @@ void ashen::Renderer::PrintStats()
     // -- Move cursor up to overwrite previous stats --
     static bool first = true;
     if (!first)
-        std::cout << "\033[13A";
+        std::cout << "\033[14A";
 	first = false;
 
     // -- Print stats with keybind hints --
@@ -396,10 +424,13 @@ void ashen::Renderer::PrintStats()
 				<< "\t\t\t\tOzone: " << (m_UseOzone ? BRIGHT_GREEN_TX : BRIGHT_RED_TXT) << (m_UseOzone ? "True" : "False") << RESET_TXT << "\n";
 
     std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key GHJK / Shift + GHJK]" << RESET_TXT
-        << "\t\tOzone Extinction: [" <<
+        << "\tOzone Extinction: [" <<
 				        BRIGHT_RED_TXT << m_kOzoneExt[0] << RESET_TXT << ", " <<
 				        BRIGHT_GREEN_TX << m_kOzoneExt[1] << RESET_TXT << ", " <<
 				        BRIGHT_BLUE_TXT << m_kOzoneExt[2] << RESET_TXT << "]\n";
+
+    std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key 9 / Shift + 9]" << RESET_TXT
+        << "\t\tLight Preset: " << m_LightIndex << "\n";
 
     std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[X]" << RESET_TXT
 				<< "\t\t\t\tFPS: " << DARK_YELLOW_TXT << fps  << RESET_TXT << "\n";

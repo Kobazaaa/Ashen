@@ -65,8 +65,9 @@ namespace ashen
         float m_AtmosphereThickness { m_OuterRadius - m_InnerRadius };
         float m_Scale               { 1.f / m_AtmosphereThickness };
 
-        glm::vec3 m_Light           { 0.f, 0.f, 1000.f };
-        glm::vec3 m_LightDirection  { glm::normalize(m_Light) };
+        glm::vec3 m_LightDirection                  { };
+        std::vector<glm::vec3> m_vLightDirections   { };
+        uint32_t m_LightIndex                       { 0u };
 
         glm::vec3 m_Wavelength	    { 0.650f, 0.570f, 0.475f }; // Wavelengths for RGB in order in nm
         glm::vec3 m_Wavelength4     { powf(m_Wavelength.x, 4), powf(m_Wavelength.y, 4) , powf(m_Wavelength.z, 4) };
