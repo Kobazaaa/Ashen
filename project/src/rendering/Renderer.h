@@ -52,6 +52,7 @@ namespace ashen
 
         float m_Kr                  { 0.0025f };        // Scattering constant for Rayleigh scattering
         float m_Km                  { 0.0010f };        // Scattering constant for Mie scattering
+        float m_Koe                 { 0.0010f };        // Ozone Extinction Coefficient
     	
         float m_Kr4PI               { m_Kr * 4.0f * std::numbers::pi_v<float> };
     	float m_Km4PI               { m_Km * 4.0f * std::numbers::pi_v<float> };
@@ -74,7 +75,8 @@ namespace ashen
         float m_MieScaleDepth       { 0.1f };
 
         float m_Exposure            { 2.0f };
-        bool m_UseHDR          { true };
+        bool m_UseHDR               { true };
+        bool m_UseOzone             { true };
 
         // -- Meshes --
         std::unique_ptr<Mesh>   m_pMeshFloor;

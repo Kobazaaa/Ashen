@@ -36,9 +36,8 @@ namespace ashen
 
 		float scale;					// 1 / (outerRadius - innerRadius)
 		float scaleDepth;				// scale depth (the altitude at which the average atmospheric density is found)
-		float scaleOverScaleDepth;		// scale / scaleDepth
-		float invScaleDepth;		    // inverse of scale depth
 
+		float koe;		                // Ozone Extinction Coefficient
 		float krESun;					// Kr * ESun
 		float kmESun;					// Km * ESun
 		float kr4PI;					// Kr * 4 * PI
@@ -70,9 +69,8 @@ namespace ashen
 
 		float scale;					// 1 / (outerRadius - innerRadius)
 		float scaleDepth;				// scale depth (the altitude at which the average atmospheric density is found)
-		float scaleOverScaleDepth;		// scale / scaleDepth
-		float invScaleDepth;		    // inverse of scale depth
 
+		float koe;		                // Ozone Extinction Coefficient
 		float krESun;					// Kr * ESun
 		float kmESun;					// Km * ESun
 		float kr4PI;					// Kr * 4 * PI

@@ -52,7 +52,10 @@ void main()
         float cameraDepth = ComputeOpticalDepth(ray, samplePoint, scaleDepth, sampleDepth);
 
         float scatter = (startDepth + (lightDepth - cameraDepth));
-        vec3 attentuation = exp(-scatter * (invWaveLength * kr4PI + km4PI));
+        vec3 attentuation = exp(-scatter * (
+            invWaveLength * kr4PI + 
+            km4PI 
+            ));
 
         // Add Color
         frontColor += attentuation * (sampleDepth * scaledLength);

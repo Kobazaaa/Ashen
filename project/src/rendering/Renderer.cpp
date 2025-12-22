@@ -83,9 +83,8 @@ void ashen::Renderer::Update()
 
         .scale = m_Scale,
         .scaleDepth = m_RayleighScaleDepth,
-        .scaleOverScaleDepth = m_Scale / m_RayleighScaleDepth,
-        .invScaleDepth = 1.f / m_RayleighScaleDepth,
 
+        .koe = m_UseOzone ? m_Koe : 0.f,
         .krESun = m_Kr * m_ESun,
         .kmESun = m_Km * m_ESun,
         .kr4PI = m_Kr4PI,
@@ -120,9 +119,8 @@ void ashen::Renderer::Update()
 
         .scale = m_Scale,
         .scaleDepth = m_RayleighScaleDepth,
-        .scaleOverScaleDepth = m_Scale / m_RayleighScaleDepth,
-        .invScaleDepth = 1.f / m_RayleighScaleDepth,
 
+    	.koe = m_UseOzone ? m_Koe : 0.f,
         .krESun = m_Kr * m_ESun,
         .kmESun = m_Km * m_ESun,
         .kr4PI = m_Kr4PI,
@@ -209,8 +207,10 @@ void ashen::Renderer::Render()
 void ashen::Renderer::HandleInput()
 {
     // -- Variables --
-    const float deltaT = Timer::GetDeltaSeconds();
+	float deltaT = Timer::GetDeltaSeconds();
+    if (m_pWindow->IsKeyDown(GLFW_KEY_RIGHT_SHIFT)) deltaT *= 3.f;
     const float exposureChange = 0.5f * deltaT;
+    const float koeChange = 0.05f * deltaT;
     const float krChange = 0.0005f * deltaT;
     const float kmChange = 0.0005f * deltaT;
     const float gChange = 0.05f * deltaT;
@@ -307,6 +307,19 @@ void ashen::Renderer::HandleInput()
        sin(elevation) * sin(azimuth))
     );
 
+    // -- Ozone --
+    static bool oPrev = false;
+    const bool oCurr = m_pWindow->IsKeyDown(GLFW_KEY_O);
+    if (oCurr && !oPrev)
+        m_UseOzone = !m_UseOzone;
+    oPrev = oCurr;
+    if (m_pWindow->IsKeyDown(GLFW_KEY_9))
+    {
+        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_Koe = std::max(0.0f, m_Koe - koeChange);
+        else m_Koe += koeChange;
+    }
+
+
     PrintStats();
 }
 void ashen::Renderer::PrintStats()
@@ -330,7 +343,7 @@ void ashen::Renderer::PrintStats()
     // -- Move cursor up to overwrite previous stats --
     static bool first = true;
     if (!first)
-        std::cout << "\033[11A";
+        std::cout << "\033[13A";
 	first = false;
 
     // -- Print stats with keybind hints --
@@ -361,6 +374,12 @@ void ashen::Renderer::PrintStats()
 
     std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key 8 / Shift + 8]" << RESET_TXT
         << "\t\tExposure: " << m_Exposure << "\n";
+
+	std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[O]" << RESET_TXT
+				<< "\t\t\t\tOzone: " << (m_UseOzone ? BRIGHT_GREEN_TX : BRIGHT_RED_TXT) << (m_UseOzone ? "True" : "False") << RESET_TXT << "\n";
+
+    std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key 9 / Shift + 9]" << RESET_TXT
+        << "\t\tOzone Extinction: " << m_Koe << "\n";
 
     std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[X]" << RESET_TXT
 				<< "\t\t\t\tFPS: " << DARK_YELLOW_TXT << fps  << RESET_TXT << "\n";
