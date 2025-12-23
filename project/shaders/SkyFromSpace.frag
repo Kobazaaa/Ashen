@@ -2,13 +2,6 @@
 #extension GL_GOOGLE_include_directive : require
 #include "Helper_PhaseFunctions.glsl"
 
-layout(set = 0, binding = 1) uniform Parameters
-{
-    vec3 lightDir;				    // direction of the sunlight
-    float g;						// constant that affects symmetry of the scattering
-    float g2;						// g^2
-};
-
 layout(location = 0) in vec3 inRayleighColor;
 layout(location = 1) in vec3 inMieColor;
 layout(location = 2) in vec3 inDirectionToCam;
