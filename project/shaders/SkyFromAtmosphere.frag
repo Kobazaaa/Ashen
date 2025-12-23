@@ -14,8 +14,11 @@ void main()
     float cosine = dot(lightDir, inDirectionToCam) / length(inDirectionToCam);
     float cosine2 = cosine * cosine;
 
-    vec3 c = GetRayleighPhase(cosine2) * inRayleighColor 
-            + GetMiePhase(cosine, cosine2, g, g2) * inMieColor;
+    float phaseR = GetRayleighPhase(cosine2);
+    float phaseM = GetMiePhase(cosine, cosine2, g, g2);
+
+    vec3 c = phaseR * inRayleighColor 
+            + phaseM * inMieColor;
     
     outColor = vec4(c, c.b);
 }

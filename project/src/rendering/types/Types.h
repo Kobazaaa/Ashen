@@ -50,6 +50,7 @@ namespace ashen
 		glm::vec3 lightDir;				// direction of the sunlight
 		float g;						// constant that affects symmetry of the scattering
 		float g2;						// g^2
+		uint32_t phaseType;				// Which phase function to use
 	};
 
 	// -- Ground --

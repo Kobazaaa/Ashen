@@ -72,8 +72,11 @@ namespace ashen
         glm::vec3 m_Wavelength	    { 0.650f, 0.570f, 0.475f }; // Wavelengths for RGB in order in nm
         glm::vec3 m_Wavelength4     { powf(m_Wavelength.x, 4), powf(m_Wavelength.y, 4) , powf(m_Wavelength.z, 4) };
 
-        float m_RayleighScaleDepth  { 0.25f };
-        float m_MieScaleDepth       { 0.1f };
+        float m_RayleighScaleDepth      { 0.25f };
+        float m_MieScaleDepth           { 0.1f };
+
+        uint32_t m_PhaseFunctionIndex   { 0u };
+        uint32_t m_PhaseFunctionCount   { 2u };
 
         float m_Exposure            { 2.0f };
         bool m_UseHDR               { true };

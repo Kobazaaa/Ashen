@@ -111,7 +111,8 @@ void ashen::Renderer::Update()
     {
         .lightDir = m_LightDirection,
         .g = m_g,
-        .g2 = m_g * m_g
+        .g2 = m_g * m_g,
+        .phaseType = m_PhaseFunctionIndex
     };
     m_vUBOSky_VS[m_CurrentFrame].MapData(&skyVs, sizeof(SkyVS));
     m_vUBOSky_FS[m_CurrentFrame].MapData(&skyFs, sizeof(SkyFS));
@@ -364,6 +365,13 @@ void ashen::Renderer::HandleInput()
         else m_kOzoneExt += koeChange;
     }
 
+    // -- Phase Function --
+    static bool fPrev = false;
+    const bool fCurr = m_pWindow->IsKeyDown(GLFW_KEY_F);
+    if (fCurr && !fPrev)
+        m_PhaseFunctionIndex = (m_PhaseFunctionIndex + 1) % m_PhaseFunctionCount;
+    fPrev = fCurr;
+
 
     PrintStats();
 }
@@ -388,7 +396,7 @@ void ashen::Renderer::PrintStats()
     // -- Move cursor up to overwrite previous stats --
     static bool first = true;
     if (!first)
-        std::cout << "\033[14A";
+        std::cout << "\033[15A";
 	first = false;
 
     // -- Print stats with keybind hints --
@@ -428,6 +436,12 @@ void ashen::Renderer::PrintStats()
 				        BRIGHT_RED_TXT << m_kOzoneExt[0] << RESET_TXT << ", " <<
 				        BRIGHT_GREEN_TX << m_kOzoneExt[1] << RESET_TXT << ", " <<
 				        BRIGHT_BLUE_TXT << m_kOzoneExt[2] << RESET_TXT << "]\n";
+
+    std::string phaseFunctionName = "Unknown";
+    if (m_PhaseFunctionIndex == 0) phaseFunctionName = "Henyey-Greenstein";
+    if (m_PhaseFunctionIndex == 1) phaseFunctionName = "Cornette-Shanks";
+    std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[F]" << RESET_TXT
+        << "\t\t\t\tPhase Functions: " << DARK_CYAN_TXT << phaseFunctionName << RESET_TXT << "\n";
 
     std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key 9 / Shift + 9]" << RESET_TXT
         << "\t\tLight Preset: " << m_LightIndex << "\n";
