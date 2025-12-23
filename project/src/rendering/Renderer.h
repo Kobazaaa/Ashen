@@ -76,7 +76,7 @@ namespace ashen
         float m_MieScaleDepth           { 0.1f };
 
         uint32_t m_PhaseFunctionIndex   { 0u };
-        uint32_t m_PhaseFunctionCount   { 2u };
+        uint32_t m_PhaseFunctionCount   { 3u };
 
         float m_Exposure            { 2.0f };
         bool m_UseHDR               { true };

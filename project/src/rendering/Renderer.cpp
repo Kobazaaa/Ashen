@@ -440,6 +440,7 @@ void ashen::Renderer::PrintStats()
     std::string phaseFunctionName = "Unknown";
     if (m_PhaseFunctionIndex == 0) phaseFunctionName = "Henyey-Greenstein";
     if (m_PhaseFunctionIndex == 1) phaseFunctionName = "Cornette-Shanks";
+    if (m_PhaseFunctionIndex == 2) phaseFunctionName = "Double Henyey-Greenstein";
     std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[F]" << RESET_TXT
         << "\t\t\t\tPhase Functions: " << DARK_CYAN_TXT << phaseFunctionName << RESET_TXT << "\n";
 
