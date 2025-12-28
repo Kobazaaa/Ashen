@@ -23,27 +23,22 @@ namespace ashen
 		glm::vec3 cameraPos;			// current camera pos
 		float cameraHeight;				// current camera height
 
-		glm::vec3 lightDir;				// direction of the sunlight
-		float cameraHeight2;			// cameraHeight^2
-
-		glm::vec3 invWaveLength;		// 1 / (wavelength^4) for RGB
+		glm::vec3 lightDir;				// direction of to sunlight
 		float sampleCount;		        // nr of samples along the ray
 
-		glm::vec3 kOzoneExt;			// Ozone Extinction Coefficient
+		glm::vec3 betaR;				// rayleigh coefficient
+		float atmosphereThickness;      // thickness of the atmosphere
 
-		float outerRadius;				// outer atmosphere radius
-		float outerRadius2;				// outerRadius^2
-		float innerRadius;				// inner planetary radius
-		float innerRadius2;				// innerRadius^2
+		glm::vec3 betaM;				// mie coefficient
+		float planetRadius;				// planetary radius
 
-		float scale;					// 1 / (outerRadius - innerRadius)
-		float scaleDepth;				// scale depth (the altitude at which the average atmospheric density is found)
+		glm::vec3 betaO;				// ozone coefficient
+		float rayleighScaleHeight;      // scale height rayleigh (the altitude at which the average atmospheric density is found)
+		float mieScaleHeigh;            // scale height mie (the altitude at which the average atmospheric density is found)
+		float sunIntensity;             // intensity of the sun
 
-
-		float krESun;					// Kr * ESun
-		float kmESun;					// Km * ESun
-		float kr4PI;					// Kr * 4 * PI
-		float km4PI;					// Km * 4 * PI
+		float renderRadius;				// the radius of the planet at which it is renderer
+		float renderThickness;			// the thickness of the atmosphere at which it is renderer
 	};
 	struct SkyFS
 	{
@@ -56,43 +51,11 @@ namespace ashen
 	// -- Ground --
 	struct GroundVS
 	{
-		glm::vec3 cameraPos;			// current camera pos
-		float cameraHeight;				// current camera height
-
-		glm::vec3 lightDir;				// direction of the sunlight
-		float cameraHeight2;			// cameraHeight^2
-
-		glm::vec3 invWaveLength;		// 1 / (wavelength^4) for RGB
-		float sampleCount;		        // nr of samples along the ray
-
-		glm::vec3 kOzoneExt;			// Ozone Extinction Coefficient
-
-		float outerRadius;				// outer atmosphere radius
-		float outerRadius2;				// outerRadius^2
-		float innerRadius;				// inner planetary radius
-		float innerRadius2;				// innerRadius^2
-
-		float scale;					// 1 / (outerRadius - innerRadius)
-		float scaleDepth;				// scale depth (the altitude at which the average atmospheric density is found)
-
-		float krESun;					// Kr * ESun
-		float kmESun;					// Km * ESun
-		float kr4PI;					// Kr * 4 * PI
-		float km4PI;					// Km * 4 * PI
+		glm::vec3 lightDir;				// direction of to sunlight
 	};
 	struct GroundFS
 	{
 		float n;
-	};
-
-	// -- Space --
-	struct SpaceVS
-	{
-		float eT;
-	};
-	struct SpaceFS
-	{
-		float eT;
 	};
 }
 

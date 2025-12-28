@@ -47,40 +47,41 @@ namespace ashen
         //--------------------------------------------------
 		//    Scattering
 		//--------------------------------------------------
+		// -- Planet --
+        float m_PlanetRadius                        { 6'371'000.f };
+        float m_AtmosphereThickness                 { 100'000 };
+        float m_RenderPlanetRadius                  { 20.f };
+        float m_RenderAtmosphereThickness           { m_RenderPlanetRadius / m_PlanetRadius * m_AtmosphereThickness };
+
         // -- Settings --
-        int m_SampleCount           { 16 };
+        int m_SampleCount                           { 16 };
+        float m_ESun                                { 20.f };                           // Strength of the Sun
+        float m_g                                   { -0.990f };                        // Scattering constant g that affects symmetry
 
-        float m_Kr                  { 0.0025f };                        // Scattering constant for Rayleigh scattering
-        float m_Km                  { 0.0010f };                        // Scattering constant for Mie scattering
-        glm::vec3 m_kOzoneExt       { 0.003, 0.004, 0.01 };             // Ozone Extinction Coefficient
-    	
-        float m_Kr4PI               { m_Kr * 4.0f * std::numbers::pi_v<float> };
-    	float m_Km4PI               { m_Km * 4.0f * std::numbers::pi_v<float> };
-        
-        float m_ESun                { 20.f };           // Strength of the Sun
-        float m_g                   { -0.990f };        // Scattering constant g that affects symmetry
+    	glm::vec3 m_Wavelength                      { 6.5e-7f, 5.1e-7f, 4.75e-7f };     // Wavelengths for RGB in order in m
 
-        float m_InnerRadius         { 10.f };
-        float m_OuterRadius         { m_InnerRadius + m_InnerRadius * 0.025f };
-        float m_AtmosphereThickness { m_OuterRadius - m_InnerRadius };
-        float m_Scale               { 1.f / m_AtmosphereThickness };
+        // -- Rayleigh --
+        glm::vec3 m_BetaRayleigh                    { /* set in constructor */ };
+        float m_RayleighScaleDepth                  { 7994.f };
 
+        // -- Mie --
+        glm::vec3 m_BetaMie	                        { /* set in constructor */ };
+        float m_MieScaleDepth                       { 1200.f };
+
+        // -- Ozone --
+        glm::vec3 m_BetaOzone                       { /* set in constructor */ };
+        bool m_UseOzone                             { true };
+
+        // -- Light --
         glm::vec3 m_LightDirection                  { };
         std::vector<glm::vec3> m_vLightDirections   { };
         uint32_t m_LightIndex                       { 0u };
 
-        glm::vec3 m_Wavelength	    { 0.650f, 0.570f, 0.475f }; // Wavelengths for RGB in order in nm
-        glm::vec3 m_Wavelength4     { powf(m_Wavelength.x, 4), powf(m_Wavelength.y, 4) , powf(m_Wavelength.z, 4) };
-
-        float m_RayleighScaleDepth      { 0.25f };
-        float m_MieScaleDepth           { 0.1f };
-
-        uint32_t m_PhaseFunctionIndex   { 0u };
-        uint32_t m_PhaseFunctionCount   { 3u };
-
-        float m_Exposure            { 2.0f };
-        bool m_UseHDR               { true };
-        bool m_UseOzone             { true };
+        // -- Extra --
+        bool m_UseHDR                               { true };
+        float m_Exposure                            { 2.0f };
+        uint32_t m_PhaseFunctionIndex               { 0u };
+        uint32_t m_PhaseFunctionCount               { 3u };
 
         // -- Meshes --
         std::unique_ptr<Mesh>   m_pMeshFloor;
@@ -99,13 +100,6 @@ namespace ashen
         std::vector<DescriptorSet>      m_vDescriptorSetsGround { };
         UniformBufferGroup<GroundVS>    m_vUBOGround_VS         { };
         UniformBufferGroup<GroundFS>    m_vUBOGround_FS         { };
-
-        Pipeline                        m_SpaceFromSpace        { };
-        Pipeline                        m_SpaceFromAtmosphere   { };
-        std::vector<DescriptorSet>      m_vDescriptorSetsSpace  { };
-        UniformBufferGroup<SpaceVS>     m_vUBOSpace_VS          { };
-        UniformBufferGroup<SpaceFS>     m_vUBOSpace_FS          { };
-
 
 
 		//--------------------------------------------------

@@ -10,7 +10,7 @@ using namespace ashen;
 
 int main()
 {
-	std::unique_ptr<Window> pWindow = std::make_unique<Window>(800, 600, "Ashen");
+	std::unique_ptr<Window> pWindow = std::make_unique<Window>(1920, 1080, "Ashen");
     std::unique_ptr<Renderer> pRenderer = std::make_unique<Renderer>(pWindow.get());
 
     Timer::Start();

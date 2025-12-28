@@ -19,16 +19,30 @@ ashen::Renderer::Renderer(Window* pWindow)
 	: m_pWindow(pWindow)
 	, m_pContext(std::make_unique<VulkanContext>(pWindow))
 {
+    float pi = std::numbers::pi_v<float>;
+
+    // -- Rayleigh --
+    float iorAir{ 1.0003f };                // Index of Refraction Air
+    float molecularDensity{ 2.545e25f };    // Molecular Density of Air at sea level
+    float K = 2 * pi * pi * (iorAir * iorAir - 1) * (iorAir * iorAir - 1) / (3 * molecularDensity);
+    m_BetaRayleigh = 4 * pi * K / glm::pow(m_Wavelength, glm::vec3{4.f});
+
+    // -- Mie --
+    m_BetaMie = glm::vec3(2e-6f, 2e-6f, 2e-6f);
+
+    // -- Ozone --
+    m_BetaOzone = glm::vec3(3.1e-25, 1.9e-25, 4.5e-26) * 2.545e25f * 6e-7f;
+
     // -- Camera --
     m_pCamera = std::make_unique<Camera>(pWindow);
-    m_pCamera->Position.y = m_InnerRadius + (m_OuterRadius - m_InnerRadius) * 0.01f;
+    m_pCamera->Position.y = m_RenderPlanetRadius + m_RenderAtmosphereThickness * 0.01f;
     m_pCamera->Speed /= 10;
-    m_pCamera->Rotation = { -20.f, 0.f, 0.f };
+    m_pCamera->Rotation = { -25.f, 0.f, 0.f };
 
     // -- Lights --
     m_vLightDirections.resize(3);
 
-    float angle = 0.f;
+    float angle = 2.5f;
     m_vLightDirections[0] = glm::vec3(0.f, sin(glm::radians(angle)), cos(glm::radians(angle)));
     angle = 20.f;
     m_vLightDirections[1] = glm::vec3(0.f, sin(glm::radians(angle)), cos(glm::radians(angle)));
@@ -40,13 +54,10 @@ ashen::Renderer::Renderer(Window* pWindow)
     // -- Render --
 	CreateSyncObjects();
 
-    m_pMeshFloor    = CreateDome(m_InnerRadius, 250, 250);
-    m_pMeshSky      = CreateDome(m_OuterRadius, 250, 250);
+    m_pMeshFloor    = CreateDome(m_RenderPlanetRadius, 250, 250);
+    m_pMeshSky      = CreateDome(m_RenderPlanetRadius + m_RenderAtmosphereThickness, 250, 250);
 
     const auto count = m_pContext->GetSwapchainImageCount();
-    m_vUBOSpace_VS  = { *m_pContext, count };
-    m_vUBOSpace_FS  = { *m_pContext, count };
-
     m_vUBOGround_VS = { *m_pContext, count };
     m_vUBOGround_FS = { *m_pContext, count };
 
@@ -81,31 +92,33 @@ void ashen::Renderer::Update()
 {
     HandleInput();
 
+    float scaledHeight = m_PlanetRadius + (glm::length(m_pCamera->Position) - m_RenderPlanetRadius) / (m_RenderAtmosphereThickness) * m_AtmosphereThickness;
+    glm::vec3 scaledPos = normalize(m_pCamera->Position) * scaledHeight;
+
+
+
     SkyVS skyVs
     {
-        .cameraPos = m_pCamera->Position,
-        .cameraHeight = glm::length(m_pCamera->Position),
+        .cameraPos = scaledPos,
+        .cameraHeight = scaledHeight,
 
         .lightDir = m_LightDirection,
-        .cameraHeight2 = glm::dot(m_pCamera->Position, m_pCamera->Position),
-
-        .invWaveLength = 1.f / m_Wavelength4,
         .sampleCount = static_cast<float>(m_SampleCount),
 
-        .kOzoneExt = m_UseOzone ? m_kOzoneExt : glm::vec3(0),
+        .betaR = m_BetaRayleigh,
+        .atmosphereThickness = m_AtmosphereThickness,
 
-        .outerRadius = m_OuterRadius,
-        .outerRadius2 = m_OuterRadius * m_OuterRadius,
-        .innerRadius = m_InnerRadius,
-        .innerRadius2 = m_InnerRadius * m_InnerRadius,
+        .betaM = m_BetaMie,
+        .planetRadius = m_PlanetRadius,
 
-        .scale = m_Scale,
-        .scaleDepth = m_RayleighScaleDepth,
+        .betaO = m_UseOzone ? m_BetaOzone : glm::vec3(0.f),
+        .rayleighScaleHeight = m_RayleighScaleDepth,
 
-        .krESun = m_Kr * m_ESun,
-        .kmESun = m_Km * m_ESun,
-        .kr4PI = m_Kr4PI,
-        .km4PI = m_Km4PI,
+        .mieScaleHeigh = m_MieScaleDepth,
+        .sunIntensity = m_ESun,
+
+        .renderRadius = m_RenderPlanetRadius,
+        .renderThickness = m_RenderAtmosphereThickness
     };
     SkyFS skyFs
     {
@@ -121,29 +134,7 @@ void ashen::Renderer::Update()
 
     GroundVS groundVs
     {
-        .cameraPos = m_pCamera->Position,
-        .cameraHeight = glm::length(m_pCamera->Position),
-
-    	.lightDir = m_LightDirection,
-        .cameraHeight2 = glm::dot(m_pCamera->Position, m_pCamera->Position),
-
-    	.invWaveLength = 1.f / m_Wavelength4,
-        .sampleCount = static_cast<float>(m_SampleCount),
-
-    	.kOzoneExt = m_UseOzone ? m_kOzoneExt : glm::vec3(0),
-
-        .outerRadius = m_OuterRadius,
-        .outerRadius2 = m_OuterRadius * m_OuterRadius,
-        .innerRadius = m_InnerRadius,
-        .innerRadius2 = m_InnerRadius * m_InnerRadius,
-
-        .scale = m_Scale,
-        .scaleDepth = m_RayleighScaleDepth,
-
-        .krESun = m_Kr * m_ESun,
-        .kmESun = m_Km * m_ESun,
-        .kr4PI = m_Kr4PI,
-        .km4PI = m_Km4PI,
+        .lightDir = m_LightDirection,
     };
     GroundFS groundFs
     {
@@ -151,19 +142,6 @@ void ashen::Renderer::Update()
     };
     m_vUBOGround_VS[m_CurrentFrame].MapData(&groundVs, sizeof(GroundVS));
     m_vUBOGround_FS[m_CurrentFrame].MapData(&groundFs, sizeof(GroundFS));
-
-
-
-    SpaceVS spaceVs
-    {
-        .eT = Timer::GetTotalTimeSeconds()
-    };
-    SpaceFS spaceFx
-    {
-        .eT = Timer::GetTotalTimeSeconds()
-    };
-    m_vUBOSpace_VS[m_CurrentFrame].MapData(&spaceVs, sizeof(SpaceVS));
-    m_vUBOSpace_FS[m_CurrentFrame].MapData(&spaceFx, sizeof(SpaceFS));
 }
 void ashen::Renderer::Render()
 {
@@ -229,12 +207,8 @@ void ashen::Renderer::HandleInput()
 	float deltaT = Timer::GetDeltaSeconds();
     if (m_pWindow->IsKeyDown(GLFW_KEY_RIGHT_SHIFT)) deltaT *= 3.f;
     const float exposureChange = 0.5f * deltaT;
-    const float koeChange = 0.05f * deltaT;
-    const float krChange = 0.0005f * deltaT;
-    const float kmChange = 0.0005f * deltaT;
     const float gChange = 0.05f * deltaT;
     const float eSunChange = 1.f * deltaT;
-    const float waveChange = 0.01f * deltaT;
     const float sunDirChange = 0.1f * deltaT;
 
     // -- Camera --
@@ -261,19 +235,7 @@ void ashen::Renderer::HandleInput()
     tabPrev = tabCurr;
 
     // -- Scattering --
-    if (m_pWindow->IsKeyDown(GLFW_KEY_1))
-    {
-        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_Kr = std::max(0.0f, m_Kr - krChange);
-        else m_Kr += krChange;
-        m_Kr4PI = m_Kr * 4.0f * std::numbers::pi_v<float>;
-    }
-    else if (m_pWindow->IsKeyDown(GLFW_KEY_2))
-    {
-        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_Km = std::max(0.0f, m_Km - kmChange);
-        else m_Km += kmChange;
-        m_Km4PI = m_Km * 4.0f * std::numbers::pi_v<float>;
-    }
-    else if (m_pWindow->IsKeyDown(GLFW_KEY_3))
+    if (m_pWindow->IsKeyDown(GLFW_KEY_3))
     {
         if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_g = std::max(-1.0f, m_g - gChange);
         else m_g = std::min(m_g + gChange, 1.0f);
@@ -282,26 +244,6 @@ void ashen::Renderer::HandleInput()
     {
         if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_ESun = std::max(0.0f, m_ESun - eSunChange);
         else m_ESun += eSunChange;
-    }
-
-    // -- Wavelengths --
-    else if (m_pWindow->IsKeyDown(GLFW_KEY_5))
-    {
-        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_Wavelength[0] = std::max(0.001f, m_Wavelength[0] - waveChange);
-        else m_Wavelength[0] += waveChange;
-        m_Wavelength4[0] = powf(m_Wavelength[0], 4.0f);
-    }
-    else if (m_pWindow->IsKeyDown(GLFW_KEY_6))
-    {
-        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_Wavelength[1] = std::max(0.001f, m_Wavelength[1] - waveChange);
-        else m_Wavelength[1] += waveChange;
-        m_Wavelength4[1] = powf(m_Wavelength[1], 4.0f);
-    }
-    else if (m_pWindow->IsKeyDown(GLFW_KEY_7))
-    {
-        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_Wavelength[2] = std::max(0.001f, m_Wavelength[2] - waveChange);
-        else m_Wavelength[2] += waveChange;
-        m_Wavelength4[2] = powf(m_Wavelength[2], 4.0f);
     }
 
     // -- Exposure --
@@ -344,26 +286,6 @@ void ashen::Renderer::HandleInput()
     if (oCurr && !oPrev)
         m_UseOzone = !m_UseOzone;
     oPrev = oCurr;
-    if (m_pWindow->IsKeyDown(GLFW_KEY_G))
-    {
-        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_kOzoneExt.x = std::max(0.f, m_kOzoneExt.x - koeChange);
-        else m_kOzoneExt.x += koeChange;
-    }
-    if (m_pWindow->IsKeyDown(GLFW_KEY_H))
-    {
-        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_kOzoneExt.y = std::max(0.f, m_kOzoneExt.y - koeChange);
-        else m_kOzoneExt.y += koeChange;
-    }
-    if (m_pWindow->IsKeyDown(GLFW_KEY_J))
-    {
-        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_kOzoneExt.z = std::max(0.f, m_kOzoneExt.z - koeChange);
-        else m_kOzoneExt.z += koeChange;
-    }
-    if (m_pWindow->IsKeyDown(GLFW_KEY_K))
-    {
-        if (m_pWindow->IsKeyDown(GLFW_KEY_LEFT_SHIFT)) m_kOzoneExt = glm::max(glm::vec3(0), m_kOzoneExt - koeChange);
-        else m_kOzoneExt += koeChange;
-    }
 
     // -- Phase Function --
     static bool fPrev = false;
@@ -396,7 +318,7 @@ void ashen::Renderer::PrintStats()
     // -- Move cursor up to overwrite previous stats --
     static bool first = true;
     if (!first)
-        std::cout << "\033[15A";
+        std::cout << "\033[11A";
 	first = false;
 
     // -- Print stats with keybind hints --
@@ -404,23 +326,11 @@ void ashen::Renderer::PrintStats()
     std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key + / Key -]" << RESET_TXT
 				<< "\t\t\tSamples: " << m_SampleCount << "\n";
 
-    std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key 1 / Shift + 1]"<< RESET_TXT
-				<< "\t\tKr: " << m_Kr << "\n";
-
-    std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key 2 / Shift + 2]" << RESET_TXT
-				<< "\t\tKm : " << m_Km << "\n";
-
     std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key 3 / Shift + 3]" << RESET_TXT
 				<< "\t\tg: " << m_g << "\n";
 
     std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key 4 / Shift + 4]" << RESET_TXT
 				<< "\t\tESun: " << m_ESun << "\n";
-
-    std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key 5-7 / Shift + 5-7]" << RESET_TXT
-				<< "\t\tWavelengths: [" << 
-						BRIGHT_RED_TXT << m_Wavelength[0] << RESET_TXT << ", " << 
-						BRIGHT_GREEN_TX << m_Wavelength[1] << RESET_TXT << ", " << 
-						BRIGHT_BLUE_TXT << m_Wavelength[2] << RESET_TXT << "]\n";
 
     std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Tab]" << RESET_TXT
 				<< "\t\t\t\tHDR: " << (m_UseHDR ? BRIGHT_GREEN_TX : BRIGHT_RED_TXT) << (m_UseHDR ? "True" : "False") << RESET_TXT << "\n";
@@ -430,12 +340,6 @@ void ashen::Renderer::PrintStats()
 
 	std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[O]" << RESET_TXT
 				<< "\t\t\t\tOzone: " << (m_UseOzone ? BRIGHT_GREEN_TX : BRIGHT_RED_TXT) << (m_UseOzone ? "True" : "False") << RESET_TXT << "\n";
-
-    std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key GHJK / Shift + GHJK]" << RESET_TXT
-        << "\tOzone Extinction: [" <<
-				        BRIGHT_RED_TXT << m_kOzoneExt[0] << RESET_TXT << ", " <<
-				        BRIGHT_GREEN_TX << m_kOzoneExt[1] << RESET_TXT << ", " <<
-				        BRIGHT_BLUE_TXT << m_kOzoneExt[2] << RESET_TXT << "]\n";
 
     std::string phaseFunctionName = "Unknown";
     if (m_PhaseFunctionIndex == 0) phaseFunctionName = "Henyey-Greenstein";
@@ -545,8 +449,6 @@ void ashen::Renderer::CreatePipelines(VkFormat renderFormat)
     m_GroundFromSpace.Destroy();
     m_SkyFromAtmosphere.Destroy();
     m_SkyFromSpace.Destroy();
-    m_SpaceFromAtmosphere.Destroy();
-    m_SpaceFromSpace.Destroy();
     m_PostProcess.Destroy();
 
     VkPipelineRenderingCreateInfo pipelineRenderingInfo{};
@@ -603,30 +505,6 @@ void ashen::Renderer::CreatePipelines(VkFormat renderFormat)
         .SetVertexShader(prefix + "GroundFromAtmosphere" + vert)
         .SetFragmentShader(prefix + "GroundFromAtmosphere" + frag)
         .Build(m_GroundFromAtmosphere);
-
-    pipelineBuilder
-        .AddPushConstantRange()
-	        .SetSize(sizeof(CameraMatricesPC))
-	        .SetOffset(0)
-	        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
-	        .EndRange()
-        .AddDescriptorSet(m_vDescriptorSetsSpace.front())
-        .SetCullMode(VK_CULL_MODE_BACK_BIT)
-        .SetVertexShader(prefix + "SpaceFromSpace" + vert)
-        .SetFragmentShader(prefix + "SpaceFromSpace" + frag)
-        .Build(m_SpaceFromSpace);
-
-    pipelineBuilder
-        .AddPushConstantRange()
-	        .SetSize(sizeof(CameraMatricesPC))
-	        .SetOffset(0)
-	        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
-	        .EndRange()
-        .AddDescriptorSet(m_vDescriptorSetsSpace.front())
-        .SetCullMode(VK_CULL_MODE_BACK_BIT)
-        .SetVertexShader(prefix + "SpaceFromAtmosphere" + vert)
-        .SetFragmentShader(prefix + "SpaceFromAtmosphere" + frag)
-        .Build(m_SpaceFromAtmosphere);
 
     pipelineBuilder
         .AddPushConstantRange()
@@ -695,7 +573,6 @@ void ashen::Renderer::CreateDescriptorSets()
 
     m_vDescriptorSetsSky.resize(count);
     m_vDescriptorSetsGround.resize(count);
-    m_vDescriptorSetsSpace.resize(count);
     m_vDescriptorSetsPostProcess.resize(count);
     for (uint32_t i{}; i < count; ++i)
     {
@@ -727,18 +604,6 @@ void ashen::Renderer::CreateDescriptorSets()
 	            .SetShaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
 	            .EndLayoutBinding()
             .Allocate(m_DescriptorPool, m_vDescriptorSetsGround[i]);
-        allocator
-            .NewLayoutBinding()
-	            .SetType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-	            .SetCount(1)
-	            .SetShaderStages(VK_SHADER_STAGE_VERTEX_BIT)
-	            .EndLayoutBinding()
-            .NewLayoutBinding()
-	            .SetType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-	            .SetCount(1)
-	            .SetShaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
-	            .EndLayoutBinding()
-            .Allocate(m_DescriptorPool, m_vDescriptorSetsSpace[i]);
 
         allocator
             .NewLayoutBinding()
@@ -766,14 +631,6 @@ void ashen::Renderer::CreateDescriptorSets()
             .WriteBuffers(m_vDescriptorSetsGround[i], 1)
             .Execute();
 
-        writer
-            .AddBufferInfo(m_vUBOSpace_VS[i], 0, sizeof(SpaceVS))
-            .WriteBuffers(m_vDescriptorSetsSpace[i], 0)
-            .Execute();
-        writer
-            .AddBufferInfo(m_vUBOSpace_FS[i], 0, sizeof(SpaceFS))
-            .WriteBuffers(m_vDescriptorSetsSpace[i], 1)
-            .Execute();
         writer
             .AddImageInfo((m_vRenderTargets)[i].GetView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m_PostProcessSampler)
             .WriteImages(m_vDescriptorSetsPostProcess[i], 0)
@@ -965,7 +822,7 @@ void ashen::Renderer::RenderFrame(uint32_t imageIndex)
 
         // -- Ground Objects --
         Pipeline* pGroundShader;
-        if (camHeight >= m_OuterRadius) pGroundShader = &m_GroundFromSpace;
+        if (camHeight >= m_RenderPlanetRadius + m_RenderAtmosphereThickness) pGroundShader = &m_GroundFromSpace;
         else pGroundShader = &m_GroundFromAtmosphere;
 
         pGroundShader->Bind(cmd);
@@ -978,7 +835,7 @@ void ashen::Renderer::RenderFrame(uint32_t imageIndex)
 
         // -- Sky Objects --
         Pipeline* pSkyShader;
-        if (camHeight >= m_OuterRadius) pSkyShader = &m_SkyFromSpace;
+        if (camHeight >= m_RenderPlanetRadius + m_RenderAtmosphereThickness) pSkyShader = &m_SkyFromSpace;
         else pSkyShader = &m_SkyFromAtmosphere;
 
         pSkyShader->Bind(cmd);
