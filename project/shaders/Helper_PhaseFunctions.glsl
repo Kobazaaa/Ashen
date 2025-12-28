@@ -1,10 +1,5 @@
-// Constants
-const float PI = 3.14159265359;
-const float INV_PI = 0.31830988618;
-const float INV_4PI = 0.07957747154;
-
 // input
-layout(set = 0, binding = 1) uniform Parameters
+layout(set = 0, binding = 1) uniform PhaseParameters
 {
     vec3 lightDir;				    // direction of the sunlight
     float g;						// constant that affects symmetry of the scattering

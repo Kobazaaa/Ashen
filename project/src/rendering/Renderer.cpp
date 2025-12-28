@@ -19,23 +19,30 @@ ashen::Renderer::Renderer(Window* pWindow)
 	: m_pWindow(pWindow)
 	, m_pContext(std::make_unique<VulkanContext>(pWindow))
 {
-    float pi = std::numbers::pi_v<float>;
+    constexpr float pi = std::numbers::pi_v<float>;
 
     // -- Rayleigh --
-    float iorAir{ 1.0003f };                // Index of Refraction Air
-    float molecularDensity{ 2.545e25f };    // Molecular Density of Air at sea level
-    float K = 2 * pi * pi * (iorAir * iorAir - 1) * (iorAir * iorAir - 1) / (3 * molecularDensity);
-    m_BetaRayleigh = 4 * pi * K / glm::pow(m_Wavelength, glm::vec3{4.f});
+    constexpr float iorAir              { 1.0003f };                                // Index of Refraction Air
+    constexpr float molecularDensity    { 2.545e25f };                              // Molecular Density of Air at sea level
+    constexpr glm::vec3 wavelength      { 6.5e-7f, 5.1e-7f, 4.75e-7f };             // Wavelengths for RGB in order in m
+    constexpr float K = 2 * pi * pi * (iorAir * iorAir - 1) * (iorAir * iorAir - 1) // constant for standard atmosphere
+						/ 
+					(3 * molecularDensity);
+    m_BetaRayleigh = 4 * pi * K
+						/ 
+					glm::pow(wavelength, glm::vec3{4.f});
 
     // -- Mie --
     m_BetaMie = glm::vec3(2e-6f, 2e-6f, 2e-6f);
 
     // -- Ozone --
-    m_BetaOzone = glm::vec3(3.1e-25, 1.9e-25, 4.5e-26) * 2.545e25f * 6e-7f;
+    constexpr float ozoneConcentration = 6e-7f;
+    constexpr glm::vec3 ozoneAbsorptionCrossSection = glm::vec3(3.1e-25, 1.9e-25, 4.5e-26);
+    m_BetaOzone = ozoneAbsorptionCrossSection * molecularDensity * ozoneConcentration;
 
     // -- Camera --
     m_pCamera = std::make_unique<Camera>(pWindow);
-    m_pCamera->Position.y = m_RenderPlanetRadius + m_RenderAtmosphereThickness * 0.01f;
+    m_pCamera->Position.y = m_RenderPlanetRadius + m_RenderAtmosphereThickness * 0.001f;
     m_pCamera->Speed /= 10;
     m_pCamera->Rotation = { -25.f, 0.f, 0.f };
 
@@ -59,7 +66,6 @@ ashen::Renderer::Renderer(Window* pWindow)
 
     const auto count = m_pContext->GetSwapchainImageCount();
     m_vUBOGround_VS = { *m_pContext, count };
-    m_vUBOGround_FS = { *m_pContext, count };
 
     m_vUBOSky_VS    = { *m_pContext, count };
     m_vUBOSky_FS    = { *m_pContext, count };
@@ -94,8 +100,6 @@ void ashen::Renderer::Update()
 
     float scaledHeight = m_PlanetRadius + (glm::length(m_pCamera->Position) - m_RenderPlanetRadius) / (m_RenderAtmosphereThickness) * m_AtmosphereThickness;
     glm::vec3 scaledPos = normalize(m_pCamera->Position) * scaledHeight;
-
-
 
     SkyVS skyVs
     {
@@ -136,12 +140,7 @@ void ashen::Renderer::Update()
     {
         .lightDir = m_LightDirection,
     };
-    GroundFS groundFs
-    {
-        .n = 0.f
-    };
     m_vUBOGround_VS[m_CurrentFrame].MapData(&groundVs, sizeof(GroundVS));
-    m_vUBOGround_FS[m_CurrentFrame].MapData(&groundFs, sizeof(GroundFS));
 }
 void ashen::Renderer::Render()
 {
@@ -446,9 +445,7 @@ void ashen::Renderer::CreatePipelines(VkFormat renderFormat)
 {
     vkDeviceWaitIdle(m_pContext->GetDevice());
     m_GroundFromAtmosphere.Destroy();
-    m_GroundFromSpace.Destroy();
     m_SkyFromAtmosphere.Destroy();
-    m_SkyFromSpace.Destroy();
     m_PostProcess.Destroy();
 
     VkPipelineRenderingCreateInfo pipelineRenderingInfo{};
@@ -490,36 +487,9 @@ void ashen::Renderer::CreatePipelines(VkFormat renderFormat)
 	        .EndRange()
         .AddDescriptorSet(m_vDescriptorSetsGround.front())
         .SetCullMode(VK_CULL_MODE_BACK_BIT)
-        .SetVertexShader(prefix + "GroundFromSpace" + vert)
-        .SetFragmentShader(prefix + "GroundFromSpace" + frag)
-        .Build(m_GroundFromSpace);
-
-    pipelineBuilder
-        .AddPushConstantRange()
-	        .SetSize(sizeof(CameraMatricesPC))
-	        .SetOffset(0)
-	        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
-	        .EndRange()
-        .AddDescriptorSet(m_vDescriptorSetsGround.front())
-        .SetCullMode(VK_CULL_MODE_BACK_BIT)
         .SetVertexShader(prefix + "GroundFromAtmosphere" + vert)
         .SetFragmentShader(prefix + "GroundFromAtmosphere" + frag)
         .Build(m_GroundFromAtmosphere);
-
-    pipelineBuilder
-        .AddPushConstantRange()
-	        .SetSize(sizeof(CameraMatricesPC))
-	        .SetOffset(0)
-	        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
-	        .EndRange()
-        .AddDescriptorSet(m_vDescriptorSetsSky.front())
-        .SetCullMode(VK_CULL_MODE_FRONT_BIT)
-        .SetVertexShader(prefix + "SkyFromSpace" + vert)
-        .SetFragmentShader(prefix + "SkyFromSpace" + frag)
-        .SetDepthTest(VK_TRUE, VK_FALSE, VK_COMPARE_OP_LESS)
-        .EnableColorBlend(0, VK_BLEND_FACTOR_SRC_ALPHA, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, VK_BLEND_OP_ADD)
-        .EnableAlphaBlend(0, VK_BLEND_FACTOR_SRC_ALPHA, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, VK_BLEND_OP_ADD)
-        .Build(m_SkyFromSpace);
 
     pipelineBuilder
         .AddPushConstantRange()
@@ -598,11 +568,6 @@ void ashen::Renderer::CreateDescriptorSets()
 	            .SetCount(1)
 	            .SetShaderStages(VK_SHADER_STAGE_VERTEX_BIT)
 	            .EndLayoutBinding()
-            .NewLayoutBinding()
-	            .SetType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-	            .SetCount(1)
-	            .SetShaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
-	            .EndLayoutBinding()
             .Allocate(m_DescriptorPool, m_vDescriptorSetsGround[i]);
 
         allocator
@@ -625,10 +590,6 @@ void ashen::Renderer::CreateDescriptorSets()
         writer
             .AddBufferInfo(m_vUBOGround_VS[i], 0, sizeof(GroundVS))
             .WriteBuffers(m_vDescriptorSetsGround[i], 0)
-            .Execute();
-        writer
-            .AddBufferInfo(m_vUBOGround_FS[i], 0, sizeof(GroundFS))
-            .WriteBuffers(m_vDescriptorSetsGround[i], 1)
             .Execute();
 
         writer
@@ -803,9 +764,11 @@ void ashen::Renderer::RenderFrame(uint32_t imageIndex)
     VkCommandBuffer cmd = m_vCommandBuffers[m_CurrentFrame];
     Image& renderImage = m_vRenderTargets[m_CurrentFrame];
 
-    auto camPos = m_pCamera->Position;
-    auto camHeight = glm::length(camPos);
-    CameraMatricesPC camMatrices{ m_pCamera->GetViewMatrix(), m_pCamera->GetProjectionMatrix() };
+    CameraMatricesPC camMatrices
+	{
+    	.view = m_pCamera->GetViewMatrix(),
+    	.proj = m_pCamera->GetProjectionMatrix()
+    };
 
     // Transition to be renderable
     if (m_UseHDR)
@@ -821,10 +784,7 @@ void ashen::Renderer::RenderFrame(uint32_t imageIndex)
         // -- Space Objects --
 
         // -- Ground Objects --
-        Pipeline* pGroundShader;
-        if (camHeight >= m_RenderPlanetRadius + m_RenderAtmosphereThickness) pGroundShader = &m_GroundFromSpace;
-        else pGroundShader = &m_GroundFromAtmosphere;
-
+        Pipeline* pGroundShader = &m_GroundFromAtmosphere;
         pGroundShader->Bind(cmd);
         m_pMeshFloor->Bind(cmd);
         vkCmdPushConstants(cmd, pGroundShader->GetLayoutHandle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(CameraMatricesPC), &camMatrices);
@@ -834,10 +794,7 @@ void ashen::Renderer::RenderFrame(uint32_t imageIndex)
         m_pMeshFloor->Draw(cmd);
 
         // -- Sky Objects --
-        Pipeline* pSkyShader;
-        if (camHeight >= m_RenderPlanetRadius + m_RenderAtmosphereThickness) pSkyShader = &m_SkyFromSpace;
-        else pSkyShader = &m_SkyFromAtmosphere;
-
+        Pipeline* pSkyShader = &m_SkyFromAtmosphere;
         pSkyShader->Bind(cmd);
         m_pMeshSky->Bind(cmd);
         vkCmdPushConstants(cmd, pSkyShader->GetLayoutHandle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(CameraMatricesPC), &camMatrices);

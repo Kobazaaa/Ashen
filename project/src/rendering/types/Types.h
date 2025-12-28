@@ -53,10 +53,6 @@ namespace ashen
 	{
 		glm::vec3 lightDir;				// direction of to sunlight
 	};
-	struct GroundFS
-	{
-		float n;
-	};
 }
 
 #endif // ASHEN_TYPES_H

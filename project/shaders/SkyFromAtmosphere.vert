@@ -22,7 +22,7 @@ layout(location = 2) out vec3 outDirectionToCam;
 void main()
 {
     // Transform the current vertex position to a world-size position instead of the scaled down render version
-    float scaledHeight = planetRadius + (length(inPosition) - renderRadius) / (renderThickness) * atmosphereThickness;
+    float scaledHeight = planetRadius + atmosphereThickness;
     vec3 scaledPos = normalize(inPosition) * scaledHeight;
 
     // Get the ray from the Camera to the current Vertex,

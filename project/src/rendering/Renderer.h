@@ -58,9 +58,7 @@ namespace ashen
         float m_ESun                                { 20.f };                           // Strength of the Sun
         float m_g                                   { -0.990f };                        // Scattering constant g that affects symmetry
 
-    	glm::vec3 m_Wavelength                      { 6.5e-7f, 5.1e-7f, 4.75e-7f };     // Wavelengths for RGB in order in m
-
-        // -- Rayleigh --
+		// -- Rayleigh --
         glm::vec3 m_BetaRayleigh                    { /* set in constructor */ };
         float m_RayleighScaleDepth                  { 7994.f };
 
@@ -89,18 +87,14 @@ namespace ashen
         std::unique_ptr<Camera> m_pCamera;
 
         // -- Pipelines --
-        Pipeline                        m_SkyFromSpace          { };
         Pipeline                        m_SkyFromAtmosphere     { };
         std::vector<DescriptorSet>      m_vDescriptorSetsSky    { };
         UniformBufferGroup<SkyVS>       m_vUBOSky_VS            { };
         UniformBufferGroup<SkyFS>       m_vUBOSky_FS            { };
 
-        Pipeline                        m_GroundFromSpace       { };
         Pipeline                        m_GroundFromAtmosphere  { };
         std::vector<DescriptorSet>      m_vDescriptorSetsGround { };
         UniformBufferGroup<GroundVS>    m_vUBOGround_VS         { };
-        UniformBufferGroup<GroundFS>    m_vUBOGround_FS         { };
-
 
 		//--------------------------------------------------
         //    Rendering

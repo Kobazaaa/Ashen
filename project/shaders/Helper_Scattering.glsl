@@ -22,10 +22,10 @@ layout(set = 0, binding = 0) uniform Parameters
 };
 
 // -- Constants --
-float PI = 3.14159265359;
-float INV_PI = 0.31830988618;
-float FOUR_PI = 12.5663706144;
-float INV_FOUR_PI = 0.07957747154;
+const float PI = 3.14159265359;
+const float INV_PI = 0.31830988618;
+const float FOUR_PI = 12.5663706144;
+const float INV_FOUR_PI = 0.07957747154;
 
 // -- Density Function --
 float DensityFunction(float heightOffGround, float scaleHeight)
