@@ -36,9 +36,8 @@ ashen::Renderer::Renderer(Window* pWindow)
     m_BetaMie = glm::vec3(2e-6f, 2e-6f, 2e-6f);
 
     // -- Ozone --
-    constexpr float ozoneConcentration = 6e-7f;
     constexpr glm::vec3 ozoneAbsorptionCrossSection = glm::vec3(3.1e-25, 1.9e-25, 4.5e-26);
-    m_BetaOzone = ozoneAbsorptionCrossSection * molecularDensity * ozoneConcentration;
+    m_BetaOzone = ozoneAbsorptionCrossSection * molecularDensity;
 
     // -- Camera --
     m_pCamera = std::make_unique<Camera>(pWindow);
