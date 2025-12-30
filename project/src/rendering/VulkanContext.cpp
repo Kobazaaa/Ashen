@@ -33,25 +33,6 @@ ashen::VulkanContext::VulkanContext(Window* window)
 	vulkan13Features.dynamicRendering = VK_TRUE;
 	vulkan13Features.synchronization2 = VK_TRUE;
 
-	uint32_t count = 0;
-	vkEnumeratePhysicalDevices(m_VkbInstance.instance, &count, nullptr);
-	std::vector<VkPhysicalDevice> devices(count);
-	vkEnumeratePhysicalDevices(m_VkbInstance.instance, &count, devices.data());
-
-	VkPhysicalDevice chosen = VK_NULL_HANDLE;
-	for (auto& dev : devices) {
-		VkPhysicalDeviceProperties props;
-		vkGetPhysicalDeviceProperties(dev, &props);
-		if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
-			chosen = dev;
-			break;
-		}
-	}
-
-	VkPhysicalDeviceProperties props{};
-	vkGetPhysicalDeviceProperties(chosen, &props);
-	std::cout << INFO_TXT << props.deviceName << RESET_TXT << "\n";
-
     vkb::PhysicalDeviceSelector selector{ m_VkbInstance };
 	auto phys_ret = selector
 		.set_surface(m_Surface)
