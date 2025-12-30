@@ -4,6 +4,8 @@
 // -- Ashen Includes --
 #include "VulkanContext.h"
 
+#include "ConsoleTextSettings.h"
+
 //--------------------------------------------------
 //    Constructor & Destructor
 //--------------------------------------------------
@@ -25,46 +27,49 @@ ashen::VulkanContext::VulkanContext(Window* window)
         throw std::runtime_error("Failed to create Vulkan surface");
 
 	// -- Features --
-	// -- Vulkan API Core Features --
-	VkPhysicalDeviceFeatures vulkanCoreFeatures{};
-	vulkanCoreFeatures.samplerAnisotropy = VK_TRUE;
-	vulkanCoreFeatures.fillModeNonSolid = VK_TRUE;
-	vulkanCoreFeatures.sampleRateShading = VK_TRUE;
-
-	// -- Vulkan API 1.1 Features --
-	VkPhysicalDeviceVulkan11Features vulkan11Features{};
-	vulkan11Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
-
-	// -- Vulkan API 1.2 Features --
-	VkPhysicalDeviceVulkan12Features vulkan12Features{};
-	vulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-	vulkan12Features.runtimeDescriptorArray = VK_TRUE;
-	vulkan12Features.descriptorBindingPartiallyBound = VK_TRUE;
-	vulkan12Features.descriptorBindingVariableDescriptorCount = VK_TRUE;
-	vulkan12Features.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
-	vulkan12Features.descriptorIndexing = VK_TRUE;
-	vulkan12Features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
-
 	// -- Vulkan API 1.3 Features --
 	VkPhysicalDeviceVulkan13Features vulkan13Features{};
 	vulkan13Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
 	vulkan13Features.dynamicRendering = VK_TRUE;
 	vulkan13Features.synchronization2 = VK_TRUE;
 
+	uint32_t count = 0;
+	vkEnumeratePhysicalDevices(m_VkbInstance.instance, &count, nullptr);
+	std::vector<VkPhysicalDevice> devices(count);
+	vkEnumeratePhysicalDevices(m_VkbInstance.instance, &count, devices.data());
+
+	VkPhysicalDevice chosen = VK_NULL_HANDLE;
+	for (auto& dev : devices) {
+		VkPhysicalDeviceProperties props;
+		vkGetPhysicalDeviceProperties(dev, &props);
+		if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+			chosen = dev;
+			break;
+		}
+	}
+
+	VkPhysicalDeviceProperties props{};
+	vkGetPhysicalDeviceProperties(chosen, &props);
+	std::cout << INFO_TXT << props.deviceName << RESET_TXT << "\n";
+
     vkb::PhysicalDeviceSelector selector{ m_VkbInstance };
-    auto phys_ret = selector
+	auto phys_ret = selector
 		.set_surface(m_Surface)
+		.prefer_gpu_device_type(vkb::PreferredDeviceType::discrete)
 		.add_required_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME)
-		.add_required_extension(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME)
-		.add_required_extension(VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME)
-		.add_required_extension(VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME)
-		.set_required_features(vulkanCoreFeatures)
-		.set_required_features_11(vulkan11Features)
-		.set_required_features_12(vulkan12Features)
 		.set_required_features_13(vulkan13Features)
-		.select();
+		.require_present(true)
+		.select_devices(vkb::DeviceSelectionMode::only_fully_suitable);
     if (!phys_ret) throw std::runtime_error("Failed to select GPU");
-    m_VkbPhysicalDevice = phys_ret.value();
+
+	auto dedicated = std::ranges::find_if(phys_ret.value(), [](const vkb::PhysicalDevice& pd)
+		{
+			return pd.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
+		});
+	if (dedicated == phys_ret.value().end()) throw std::runtime_error("Failed to select GPU");
+    m_VkbPhysicalDevice = *dedicated;
+	std::cout << INFO_TXT << m_VkbPhysicalDevice.name << RESET_TXT << "\n";
+	
 
     vkb::DeviceBuilder device_builder{ m_VkbPhysicalDevice };
     auto dev_ret = device_builder
