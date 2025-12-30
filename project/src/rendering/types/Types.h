@@ -32,7 +32,6 @@ namespace ashen
 		glm::vec3 betaM;				// mie coefficient
 		float planetRadius;				// planetary radius
 
-		glm::vec3 betaO;				// ozone coefficient
 		float rayleighScaleHeight;      // scale height rayleigh (the altitude at which the average atmospheric density is found)
 		float mieScaleHeigh;            // scale height mie (the altitude at which the average atmospheric density is found)
 		float sunIntensity;             // intensity of the sun
@@ -45,7 +44,6 @@ namespace ashen
 		glm::vec3 lightDir;				// direction of the sunlight
 		float g;						// constant that affects symmetry of the scattering
 		float g2;						// g^2
-		uint32_t phaseType;				// Which phase function to use
 	};
 
 	// -- Ground --

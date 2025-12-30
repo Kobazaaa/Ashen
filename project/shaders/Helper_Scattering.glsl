@@ -12,7 +12,6 @@ layout(set = 0, binding = 0) uniform Parameters
     vec3 betaM;				        // mie coefficient
     float planetRadius;				// planetary radius
     
-    vec3 betaO;				        // ozone coefficient
     float rayleighScaleHeight;      // scale height rayleigh (the altitude at which the average atmospheric density is found)
     float mieScaleHeigh;            // scale height mie (the altitude at which the average atmospheric density is found)
     float sunIntensity;             // intensity of the sun
@@ -49,7 +48,6 @@ vec3 CalculateAttenuation(vec3 start, vec3 end)
     // -- Intagration time
     vec3 resultRayleigh = vec3(0);
     vec3 resultMie = vec3(0);
-    vec3 resultOzone = vec3(0);
     for(int i = 0; i < sampleCount; ++i)
     {
         float height = length(samplePoint) - planetRadius;
@@ -57,12 +55,10 @@ vec3 CalculateAttenuation(vec3 start, vec3 end)
         // Calculate density at height
         float dR = DensityFunction(height, rayleighScaleHeight);
         float dM = DensityFunction(height, mieScaleHeigh);
-        float dO = dR * 6e-7;
         
         // sum up
         resultRayleigh  += dR * sampleLength;
         resultMie       += dM * sampleLength;
-        resultOzone     += dO * sampleLength;
 
         samplePoint += sampleRay;
     }
@@ -70,10 +66,9 @@ vec3 CalculateAttenuation(vec3 start, vec3 end)
     // calibrate with coefficients
     resultRayleigh *= betaR;
     resultMie *= betaM / 0.9;
-    resultOzone *= betaO;
 
     // return attenuations
-    return exp(-(resultRayleigh + resultMie + resultOzone));
+    return exp(-(resultRayleigh + resultMie));
 }
 
 float DistanceToAtmosphereExit(vec3 start, vec3 dir)
