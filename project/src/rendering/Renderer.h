@@ -68,7 +68,6 @@ namespace ashen
 
         // -- Ozone --
         glm::vec3 m_BetaOzone                       { /* set in constructor */ };
-        bool m_UseOzone                             { true };
 
         // -- Light --
         glm::vec3 m_LightDirection                  { };
@@ -78,8 +77,6 @@ namespace ashen
         // -- Extra --
         bool m_UseHDR                               { true };
         float m_Exposure                            { 2.0f };
-        uint32_t m_PhaseFunctionIndex               { 0u };
-        uint32_t m_PhaseFunctionCount               { 3u };
 
         // -- Meshes --
         std::unique_ptr<Mesh>   m_pMeshFloor;

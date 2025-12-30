@@ -114,7 +114,7 @@ void ashen::Renderer::Update()
         .betaM = m_BetaMie,
         .planetRadius = m_PlanetRadius,
 
-        .betaO = m_UseOzone ? m_BetaOzone : glm::vec3(0.f),
+        .betaO = m_BetaOzone,
         .rayleighScaleHeight = m_RayleighScaleDepth,
 
         .mieScaleHeigh = m_MieScaleDepth,
@@ -128,7 +128,6 @@ void ashen::Renderer::Update()
         .lightDir = m_LightDirection,
         .g = m_g,
         .g2 = m_g * m_g,
-        .phaseType = m_PhaseFunctionIndex
     };
     m_vUBOSky_VS[m_CurrentFrame].MapData(&skyVs, sizeof(SkyVS));
     m_vUBOSky_FS[m_CurrentFrame].MapData(&skyFs, sizeof(SkyFS));
@@ -278,21 +277,6 @@ void ashen::Renderer::HandleInput()
     );
 
 
-    // -- Ozone --
-    static bool oPrev = false;
-    const bool oCurr = m_pWindow->IsKeyDown(GLFW_KEY_O);
-    if (oCurr && !oPrev)
-        m_UseOzone = !m_UseOzone;
-    oPrev = oCurr;
-
-    // -- Phase Function --
-    static bool fPrev = false;
-    const bool fCurr = m_pWindow->IsKeyDown(GLFW_KEY_F);
-    if (fCurr && !fPrev)
-        m_PhaseFunctionIndex = (m_PhaseFunctionIndex + 1) % m_PhaseFunctionCount;
-    fPrev = fCurr;
-
-
     PrintStats();
 }
 void ashen::Renderer::PrintStats()
@@ -316,7 +300,7 @@ void ashen::Renderer::PrintStats()
     // -- Move cursor up to overwrite previous stats --
     static bool first = true;
     if (!first)
-        std::cout << "\033[11A";
+        std::cout << "\033[09A";
 	first = false;
 
     // -- Print stats with keybind hints --
@@ -335,16 +319,6 @@ void ashen::Renderer::PrintStats()
 
     std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key 8 / Shift + 8]" << RESET_TXT
         << "\t\tExposure: " << m_Exposure << "\n";
-
-	std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[O]" << RESET_TXT
-				<< "\t\t\t\tOzone: " << (m_UseOzone ? BRIGHT_GREEN_TX : BRIGHT_RED_TXT) << (m_UseOzone ? "True" : "False") << RESET_TXT << "\n";
-
-    std::string phaseFunctionName = "Unknown";
-    if (m_PhaseFunctionIndex == 0) phaseFunctionName = "Henyey-Greenstein";
-    if (m_PhaseFunctionIndex == 1) phaseFunctionName = "Cornette-Shanks";
-    if (m_PhaseFunctionIndex == 2) phaseFunctionName = "Double Henyey-Greenstein";
-    std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[F]" << RESET_TXT
-        << "\t\t\t\tPhase Functions: " << DARK_CYAN_TXT << phaseFunctionName << RESET_TXT << "\n";
 
     std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key 9 / Shift + 9]" << RESET_TXT
         << "\t\tLight Preset: " << m_LightIndex << "\n";
