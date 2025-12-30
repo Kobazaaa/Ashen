@@ -16,28 +16,24 @@
 //    Constructor & Destructor
 //--------------------------------------------------
 ashen::Renderer::Renderer(Window* pWindow)
-	: m_pWindow(pWindow)
-	, m_pContext(std::make_unique<VulkanContext>(pWindow))
+    : m_pWindow(pWindow)
+    , m_pContext(std::make_unique<VulkanContext>(pWindow))
 {
     constexpr float pi = std::numbers::pi_v<float>;
 
     // -- Rayleigh --
-    constexpr float iorAir              { 1.0003f };                                // Index of Refraction Air
-    constexpr float molecularDensity    { 2.545e25f };                              // Molecular Density of Air at sea level
-    constexpr glm::vec3 wavelength      { 6.5e-7f, 5.1e-7f, 4.75e-7f };             // Wavelengths for RGB in order in m
+    constexpr float iorAir{ 1.0003f };                                // Index of Refraction Air
+    constexpr float molecularDensity{ 2.545e25f };                              // Molecular Density of Air at sea level
+    constexpr glm::vec3 wavelength{ 6.5e-7f, 5.1e-7f, 4.75e-7f };             // Wavelengths for RGB in order in m
     constexpr float K = 2 * pi * pi * (iorAir * iorAir - 1) * (iorAir * iorAir - 1) // constant for standard atmosphere
-						/ 
-					(3 * molecularDensity);
+        /
+        (3 * molecularDensity);
     m_BetaRayleigh = 4 * pi * K
-						/ 
-					glm::pow(wavelength, glm::vec3{4.f});
+        /
+        glm::pow(wavelength, glm::vec3{ 4.f });
 
     // -- Mie --
     m_BetaMie = glm::vec3(2e-6f, 2e-6f, 2e-6f);
-
-    // -- Ozone --
-    constexpr glm::vec3 ozoneAbsorptionCrossSection = glm::vec3(3.1e-25, 1.9e-25, 4.5e-26);
-    m_BetaOzone = ozoneAbsorptionCrossSection * molecularDensity;
 
     // -- Camera --
     m_pCamera = std::make_unique<Camera>(pWindow);
@@ -58,16 +54,16 @@ ashen::Renderer::Renderer(Window* pWindow)
     m_LightDirection = m_vLightDirections[m_LightIndex];
 
     // -- Render --
-	CreateSyncObjects();
+    CreateSyncObjects();
 
-    m_pMeshFloor    = CreateDome(m_RenderPlanetRadius, 250, 250);
-    m_pMeshSky      = CreateDome(m_RenderPlanetRadius + m_RenderAtmosphereThickness, 250, 250);
+    m_pMeshFloor = CreateDome(m_RenderPlanetRadius, 250, 250);
+    m_pMeshSky = CreateDome(m_RenderPlanetRadius + m_RenderAtmosphereThickness, 250, 250);
 
     const auto count = m_pContext->GetSwapchainImageCount();
     m_vUBOGround_VS = { *m_pContext, count };
 
-    m_vUBOSky_VS    = { *m_pContext, count };
-    m_vUBOSky_FS    = { *m_pContext, count };
+    m_vUBOSky_VS = { *m_pContext, count };
+    m_vUBOSky_FS = { *m_pContext, count };
 
     CreateSamplers();
     CreateDepthResources(m_pContext->GetSwapchainExtent());
@@ -84,9 +80,9 @@ ashen::Renderer::~Renderer()
 
     vkDestroySampler(m_pContext->GetDevice(), m_PostProcessSampler, nullptr);
 
-	for (const auto& sem : m_vImageAvailableSemaphores) vkDestroySemaphore(device, sem, nullptr);
-	for (const auto& sem : m_vRenderFinishedSemaphores) vkDestroySemaphore(device, sem, nullptr);
-	for (const auto& fence : m_vInFlightFences) vkDestroyFence(device, fence, nullptr);
+    for (const auto& sem : m_vImageAvailableSemaphores) vkDestroySemaphore(device, sem, nullptr);
+    for (const auto& sem : m_vRenderFinishedSemaphores) vkDestroySemaphore(device, sem, nullptr);
+    for (const auto& fence : m_vInFlightFences) vkDestroyFence(device, fence, nullptr);
 }
 
 
@@ -97,7 +93,7 @@ void ashen::Renderer::Update()
 {
     HandleInput();
 
-    float scaledHeight = m_PlanetRadius + (glm::length(m_pCamera->Position) - m_RenderPlanetRadius) / (m_RenderAtmosphereThickness) * m_AtmosphereThickness;
+    float scaledHeight = m_PlanetRadius + (glm::length(m_pCamera->Position) - m_RenderPlanetRadius) / (m_RenderAtmosphereThickness)*m_AtmosphereThickness;
     glm::vec3 scaledPos = normalize(m_pCamera->Position) * scaledHeight;
 
     SkyVS skyVs
@@ -114,9 +110,7 @@ void ashen::Renderer::Update()
         .betaM = m_BetaMie,
         .planetRadius = m_PlanetRadius,
 
-        .betaO = m_UseOzone ? m_BetaOzone : glm::vec3(0.f),
         .rayleighScaleHeight = m_RayleighScaleDepth,
-
         .mieScaleHeigh = m_MieScaleDepth,
         .sunIntensity = m_ESun,
 
@@ -128,7 +122,6 @@ void ashen::Renderer::Update()
         .lightDir = m_LightDirection,
         .g = m_g,
         .g2 = m_g * m_g,
-        .phaseType = m_PhaseFunctionIndex
     };
     m_vUBOSky_VS[m_CurrentFrame].MapData(&skyVs, sizeof(SkyVS));
     m_vUBOSky_FS[m_CurrentFrame].MapData(&skyFs, sizeof(SkyFS));
@@ -153,14 +146,14 @@ void ashen::Renderer::Render()
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
     {
         OnResize();
-    	return;
+        return;
     }
     if (result != VK_SUCCESS)
         throw std::runtime_error("Failed to acquire Swap Chain Image");
 
     vkResetFences(device, 1, &m_vInFlightFences[m_CurrentFrame]);
 
-	RecordCommandBuffer(imageIndex);
+    RecordCommandBuffer(imageIndex);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -187,7 +180,7 @@ void ashen::Renderer::Render()
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = &swapchain;
     presentInfo.pImageIndices = &imageIndex;
-    
+
     result = vkQueuePresentKHR(m_pContext->GetQueue(vkb::QueueType::present), &presentInfo);
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_pWindow->IsOutdated())
     {
@@ -202,7 +195,7 @@ void ashen::Renderer::Render()
 void ashen::Renderer::HandleInput()
 {
     // -- Variables --
-	float deltaT = Timer::GetDeltaSeconds();
+    float deltaT = Timer::GetDeltaSeconds();
     if (m_pWindow->IsKeyDown(GLFW_KEY_RIGHT_SHIFT)) deltaT *= 3.f;
     const float exposureChange = 0.5f * deltaT;
     const float gChange = 0.05f * deltaT;
@@ -278,21 +271,6 @@ void ashen::Renderer::HandleInput()
     );
 
 
-    // -- Ozone --
-    static bool oPrev = false;
-    const bool oCurr = m_pWindow->IsKeyDown(GLFW_KEY_O);
-    if (oCurr && !oPrev)
-        m_UseOzone = !m_UseOzone;
-    oPrev = oCurr;
-
-    // -- Phase Function --
-    static bool fPrev = false;
-    const bool fCurr = m_pWindow->IsKeyDown(GLFW_KEY_F);
-    if (fCurr && !fPrev)
-        m_PhaseFunctionIndex = (m_PhaseFunctionIndex + 1) % m_PhaseFunctionCount;
-    fPrev = fCurr;
-
-
     PrintStats();
 }
 void ashen::Renderer::PrintStats()
@@ -316,41 +294,31 @@ void ashen::Renderer::PrintStats()
     // -- Move cursor up to overwrite previous stats --
     static bool first = true;
     if (!first)
-        std::cout << "\033[11A";
-	first = false;
+        std::cout << "\033[09A";
+    first = false;
 
     // -- Print stats with keybind hints --
     std::cout << "--- STATS OVERVIEW ---\n";
     std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key + / Key -]" << RESET_TXT
-				<< "\t\t\tSamples: " << m_SampleCount << "\n";
+        << "\t\t\tSamples: " << m_SampleCount << "\n";
 
     std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key 3 / Shift + 3]" << RESET_TXT
-				<< "\t\tg: " << m_g << "\n";
+        << "\t\tg: " << m_g << "\n";
 
     std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key 4 / Shift + 4]" << RESET_TXT
-				<< "\t\tESun: " << m_ESun << "\n";
+        << "\t\tESun: " << m_ESun << "\n";
 
     std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Tab]" << RESET_TXT
-				<< "\t\t\t\tHDR: " << (m_UseHDR ? BRIGHT_GREEN_TX : BRIGHT_RED_TXT) << (m_UseHDR ? "True" : "False") << RESET_TXT << "\n";
+        << "\t\t\t\tHDR: " << (m_UseHDR ? BRIGHT_GREEN_TX : BRIGHT_RED_TXT) << (m_UseHDR ? "True" : "False") << RESET_TXT << "\n";
 
     std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key 8 / Shift + 8]" << RESET_TXT
         << "\t\tExposure: " << m_Exposure << "\n";
-
-	std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[O]" << RESET_TXT
-				<< "\t\t\t\tOzone: " << (m_UseOzone ? BRIGHT_GREEN_TX : BRIGHT_RED_TXT) << (m_UseOzone ? "True" : "False") << RESET_TXT << "\n";
-
-    std::string phaseFunctionName = "Unknown";
-    if (m_PhaseFunctionIndex == 0) phaseFunctionName = "Henyey-Greenstein";
-    if (m_PhaseFunctionIndex == 1) phaseFunctionName = "Cornette-Shanks";
-    if (m_PhaseFunctionIndex == 2) phaseFunctionName = "Double Henyey-Greenstein";
-    std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[F]" << RESET_TXT
-        << "\t\t\t\tPhase Functions: " << DARK_CYAN_TXT << phaseFunctionName << RESET_TXT << "\n";
 
     std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[Key 9 / Shift + 9]" << RESET_TXT
         << "\t\tLight Preset: " << m_LightIndex << "\n";
 
     std::cout << CLEAR_LINE << BRIGHT_BLACK_TXT << "[X]" << RESET_TXT
-				<< "\t\t\t\tFPS: " << DARK_YELLOW_TXT << fps  << RESET_TXT << "\n";
+        << "\t\t\t\tFPS: " << DARK_YELLOW_TXT << fps << RESET_TXT << "\n";
 
     std::cout << "--- STATS OVERVIEW ---\n";
     std::cout << std::flush;
@@ -371,7 +339,7 @@ std::unique_ptr<ashen::Mesh> ashen::Renderer::CreateDome(float radius, int segme
     std::vector<uint32_t> indices;
 
     // -- Vertices --
-    for (int lat{}; lat <= segmentsLat; ++lat) 
+    for (int lat{}; lat <= segmentsLat; ++lat)
     {
         const float theta = glm::half_pi<float>() * static_cast<float>(lat) / static_cast<float>(segmentsLat);
         const float sinTheta = sin(theta);
@@ -386,16 +354,16 @@ std::unique_ptr<ashen::Mesh> ashen::Renderer::CreateDome(float radius, int segme
             const glm::vec3 pos = radius * glm::vec3(cosPhi * sinTheta, cosTheta, sinPhi * sinTheta);
             vertices.push_back(
                 {
-                	.pos = pos,
-                	.color = VERTEX_COLOR
+                    .pos = pos,
+                    .color = VERTEX_COLOR
                 });
         }
     }
 
     // -- Indices --
-    for (int lat{}; lat < segmentsLat; ++lat) 
+    for (int lat{}; lat < segmentsLat; ++lat)
     {
-        for (int lon{}; lon < segmentsLon; ++lon) 
+        for (int lon{}; lon < segmentsLon; ++lon)
         {
             const int current = lat * (segmentsLon + 1) + lon;
             const int next = current + segmentsLon + 1;
@@ -480,10 +448,10 @@ void ashen::Renderer::CreatePipelines(VkFormat renderFormat)
 
     pipelineBuilder
         .AddPushConstantRange()
-	        .SetSize(sizeof(CameraMatricesPC))
-	        .SetOffset(0)
-	        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
-	        .EndRange()
+        .SetSize(sizeof(CameraMatricesPC))
+        .SetOffset(0)
+        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
+        .EndRange()
         .AddDescriptorSet(m_vDescriptorSetsGround.front())
         .SetCullMode(VK_CULL_MODE_BACK_BIT)
         .SetVertexShader(prefix + "GroundFromAtmosphere" + vert)
@@ -492,10 +460,10 @@ void ashen::Renderer::CreatePipelines(VkFormat renderFormat)
 
     pipelineBuilder
         .AddPushConstantRange()
-	        .SetSize(sizeof(CameraMatricesPC))
-	        .SetOffset(0)
-	        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
-	        .EndRange()
+        .SetSize(sizeof(CameraMatricesPC))
+        .SetOffset(0)
+        .SetStageFlags(VK_SHADER_STAGE_VERTEX_BIT)
+        .EndRange()
         .AddDescriptorSet(m_vDescriptorSetsSky.front())
         .SetCullMode(VK_CULL_MODE_FRONT_BIT)
         .SetVertexShader(prefix + "SkyFromAtmosphere" + vert)
@@ -511,10 +479,10 @@ void ashen::Renderer::CreatePipelines(VkFormat renderFormat)
     pipelineBuilder = { *m_pContext };
     pipelineBuilder
         .AddPushConstantRange()
-            .SetSize(sizeof(Exposure))
-            .SetOffset(0)
-            .SetStageFlags(VK_SHADER_STAGE_FRAGMENT_BIT)
-            .EndRange()
+        .SetSize(sizeof(Exposure))
+        .SetOffset(0)
+        .SetStageFlags(VK_SHADER_STAGE_FRAGMENT_BIT)
+        .EndRange()
         .AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT)
         .AddDynamicState(VK_DYNAMIC_STATE_SCISSOR)
         .SetCullMode(VK_CULL_MODE_BACK_BIT)
@@ -550,31 +518,31 @@ void ashen::Renderer::CreateDescriptorSets()
 
         allocator
             .NewLayoutBinding()
-	            .SetType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-	            .SetCount(1)
-	            .SetShaderStages(VK_SHADER_STAGE_VERTEX_BIT)
-	            .EndLayoutBinding()
+            .SetType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+            .SetCount(1)
+            .SetShaderStages(VK_SHADER_STAGE_VERTEX_BIT)
+            .EndLayoutBinding()
             .NewLayoutBinding()
-	            .SetType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-	            .SetCount(1)
-	            .SetShaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
-	            .EndLayoutBinding()
+            .SetType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+            .SetCount(1)
+            .SetShaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
+            .EndLayoutBinding()
             .Allocate(m_DescriptorPool, m_vDescriptorSetsSky[i]);
 
         allocator
             .NewLayoutBinding()
-	            .SetType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-	            .SetCount(1)
-	            .SetShaderStages(VK_SHADER_STAGE_VERTEX_BIT)
-	            .EndLayoutBinding()
+            .SetType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+            .SetCount(1)
+            .SetShaderStages(VK_SHADER_STAGE_VERTEX_BIT)
+            .EndLayoutBinding()
             .Allocate(m_DescriptorPool, m_vDescriptorSetsGround[i]);
 
         allocator
             .NewLayoutBinding()
-                .SetType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
-                .SetCount(1)
-                .SetShaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
-                .EndLayoutBinding()
+            .SetType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+            .SetCount(1)
+            .SetShaderStages(VK_SHADER_STAGE_FRAGMENT_BIT)
+            .EndLayoutBinding()
             .Allocate(m_DescriptorPool, m_vDescriptorSetsPostProcess[i]);
 
         writer
@@ -672,7 +640,7 @@ void ashen::Renderer::CreateSyncObjects()
     fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
     // Creation --
-    for (size_t i = 0; i < maxFramesInFlight; i++) 
+    for (size_t i = 0; i < maxFramesInFlight; i++)
     {
         if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &m_vImageAvailableSemaphores[i]) != VK_SUCCESS ||
             vkCreateSemaphore(device, &semaphoreInfo, nullptr, &m_vRenderFinishedSemaphores[i]) != VK_SUCCESS ||
@@ -764,21 +732,21 @@ void ashen::Renderer::RenderFrame(uint32_t imageIndex)
     Image& renderImage = m_vRenderTargets[m_CurrentFrame];
 
     CameraMatricesPC camMatrices
-	{
-    	.view = m_pCamera->GetViewMatrix(),
-    	.proj = m_pCamera->GetProjectionMatrix()
+    {
+        .view = m_pCamera->GetViewMatrix(),
+        .proj = m_pCamera->GetProjectionMatrix()
     };
 
     // Transition to be renderable
     if (m_UseHDR)
     {
-	    renderImage.TransitionLayout(cmd,
-	        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-	        VK_ACCESS_2_NONE, VK_PIPELINE_STAGE_2_NONE,
-	        VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+        renderImage.TransitionLayout(cmd,
+            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            VK_ACCESS_2_NONE, VK_PIPELINE_STAGE_2_NONE,
+            VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
     }
 
-	SetRenderTarget(m_UseHDR ? renderImage.GetView() : m_pContext->GetSwapchainImageViews()[imageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    SetRenderTarget(m_UseHDR ? renderImage.GetView() : m_pContext->GetSwapchainImageViews()[imageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     {
         // -- Space Objects --
 
@@ -820,7 +788,7 @@ void ashen::Renderer::RenderFrame(uint32_t imageIndex)
             .exposure = m_Exposure,
         };
         m_PostProcess.Bind(cmd);
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PostProcess.GetLayoutHandle(), 0, 1, 
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PostProcess.GetLayoutHandle(), 0, 1,
             &m_vDescriptorSetsPostProcess[m_CurrentFrame].GetHandle(), 0, nullptr);
         vkCmdPushConstants(cmd, m_PostProcess.GetLayoutHandle(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(Exposure), &exposure);
         vkCmdDraw(cmd, 3, 1, 0, 0);
@@ -832,7 +800,7 @@ void ashen::Renderer::EndFrame(uint32_t imageIndex) const
     VkCommandBuffer cmd = m_vCommandBuffers[m_CurrentFrame];
 
     VkImageMemoryBarrier presentBarrier{};
-	presentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    presentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     presentBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     presentBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
     presentBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;

@@ -17,14 +17,14 @@
 namespace ashen
 {
     //? ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	//? ~~    Renderer
-	//? ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //? ~~    Renderer
+    //? ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     class Renderer final
     {
     public:
         //--------------------------------------------------
-		//    Constructor & Destructor
-		//--------------------------------------------------
+        //    Constructor & Destructor
+        //--------------------------------------------------
         explicit Renderer(Window* pWindow);
         ~Renderer();
 
@@ -34,8 +34,8 @@ namespace ashen
         Renderer& operator=(Renderer&& other) = delete;
 
         //--------------------------------------------------
-		//    Functionality
-		//--------------------------------------------------
+        //    Functionality
+        //--------------------------------------------------
         void Update();
         void Render();
 
@@ -45,41 +45,35 @@ namespace ashen
         std::unique_ptr<VulkanContext> m_pContext;
 
         //--------------------------------------------------
-		//    Scattering
-		//--------------------------------------------------
-		// -- Planet --
-        float m_PlanetRadius                        { 6'371'000.f };
-        float m_AtmosphereThickness                 { 100'000 };
-        float m_RenderPlanetRadius                  { 20.f };
-        float m_RenderAtmosphereThickness           { m_RenderPlanetRadius / m_PlanetRadius * m_AtmosphereThickness };
+        //    Scattering
+        //--------------------------------------------------
+        // -- Planet --
+        float m_PlanetRadius{ 6'371'000.f };
+        float m_AtmosphereThickness{ 100'000 };
+        float m_RenderPlanetRadius{ 20.f };
+        float m_RenderAtmosphereThickness{ m_RenderPlanetRadius / m_PlanetRadius * m_AtmosphereThickness };
 
         // -- Settings --
-        int m_SampleCount                           { 16 };
-        float m_ESun                                { 20.f };                           // Strength of the Sun
-        float m_g                                   { -0.990f };                        // Scattering constant g that affects symmetry
+        int m_SampleCount{ 16 };
+        float m_ESun{ 20.f };                           // Strength of the Sun
+        float m_g{ -0.990f };                        // Scattering constant g that affects symmetry
 
-		// -- Rayleigh --
-        glm::vec3 m_BetaRayleigh                    { /* set in constructor */ };
-        float m_RayleighScaleDepth                  { 7994.f };
+        // -- Rayleigh --
+        glm::vec3 m_BetaRayleigh{ /* set in constructor */ };
+        float m_RayleighScaleDepth{ 7994.f };
 
         // -- Mie --
-        glm::vec3 m_BetaMie	                        { /* set in constructor */ };
-        float m_MieScaleDepth                       { 1200.f };
-
-        // -- Ozone --
-        glm::vec3 m_BetaOzone                       { /* set in constructor */ };
-        bool m_UseOzone                             { true };
+        glm::vec3 m_BetaMie{ /* set in constructor */ };
+        float m_MieScaleDepth{ 1200.f };
 
         // -- Light --
-        glm::vec3 m_LightDirection                  { };
-        std::vector<glm::vec3> m_vLightDirections   { };
-        uint32_t m_LightIndex                       { 0u };
+        glm::vec3 m_LightDirection{ };
+        std::vector<glm::vec3> m_vLightDirections{ };
+        uint32_t m_LightIndex{ 0u };
 
         // -- Extra --
-        bool m_UseHDR                               { true };
-        float m_Exposure                            { 2.0f };
-        uint32_t m_PhaseFunctionIndex               { 0u };
-        uint32_t m_PhaseFunctionCount               { 3u };
+        bool m_UseHDR{ true };
+        float m_Exposure{ 2.0f };
 
         // -- Meshes --
         std::unique_ptr<Mesh>   m_pMeshFloor;
@@ -87,16 +81,16 @@ namespace ashen
         std::unique_ptr<Camera> m_pCamera;
 
         // -- Pipelines --
-        Pipeline                        m_SkyFromAtmosphere     { };
-        std::vector<DescriptorSet>      m_vDescriptorSetsSky    { };
-        UniformBufferGroup<SkyVS>       m_vUBOSky_VS            { };
-        UniformBufferGroup<SkyFS>       m_vUBOSky_FS            { };
+        Pipeline                        m_SkyFromAtmosphere{ };
+        std::vector<DescriptorSet>      m_vDescriptorSetsSky{ };
+        UniformBufferGroup<SkyVS>       m_vUBOSky_VS{ };
+        UniformBufferGroup<SkyFS>       m_vUBOSky_FS{ };
 
-        Pipeline                        m_GroundFromAtmosphere  { };
-        std::vector<DescriptorSet>      m_vDescriptorSetsGround { };
-        UniformBufferGroup<GroundVS>    m_vUBOGround_VS         { };
+        Pipeline                        m_GroundFromAtmosphere{ };
+        std::vector<DescriptorSet>      m_vDescriptorSetsGround{ };
+        UniformBufferGroup<GroundVS>    m_vUBOGround_VS{ };
 
-		//--------------------------------------------------
+        //--------------------------------------------------
         //    Rendering
         //--------------------------------------------------
 
