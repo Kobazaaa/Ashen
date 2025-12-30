@@ -9,10 +9,13 @@
 //--------------------------------------------------
 ashen::VulkanContext::VulkanContext(Window* window)
 {
+
     vkb::InstanceBuilder builder;
     auto inst_ret = builder.set_app_name("Ashen")
+#ifdef _DEBUG
         .request_validation_layers(true)
         .use_default_debug_messenger()
+#endif
 		.require_api_version(VK_API_VERSION_1_3)
         .build();
     if (!inst_ret) throw std::runtime_error("Failed to create Vulkan instance");
