@@ -292,8 +292,9 @@ void ashen::Renderer::HandleInput()
         m_PhaseFunctionIndex = (m_PhaseFunctionIndex + 1) % m_PhaseFunctionCount;
     fPrev = fCurr;
 
-
+#ifdef _DEBUG
     PrintStats();
+#endif
 }
 void ashen::Renderer::PrintStats()
 {
