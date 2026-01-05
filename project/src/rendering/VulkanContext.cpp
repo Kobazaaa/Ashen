@@ -111,12 +111,16 @@ void ashen::VulkanContext::RebuildSwapchain(glm::uvec2 size)
 
 	m_VkbSwapchain.destroy_image_views(m_vSwapchainImageViews);
 	m_vSwapchainImageViews.clear();
+	vkb::destroy_swapchain(m_VkbSwapchain);
+
+	VkSurfaceFormatKHR format{ VK_FORMAT_B8G8R8A8_SRGB , VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
 	auto swap_ret = vkb::SwapchainBuilder(m_VkbDevice, m_Surface)
-		.set_old_swapchain(m_VkbSwapchain)
+		.set_desired_format(format)
+		.set_desired_min_image_count(2)
 		.set_desired_extent(size.x, size.y)
+		.set_desired_present_mode(VK_PRESENT_MODE_IMMEDIATE_KHR)
 		.build();
 	if (!swap_ret) throw std::runtime_error("Failed to create swapchain");
-	vkb::destroy_swapchain(m_VkbSwapchain);
 	m_VkbSwapchain = swap_ret.value();
 	m_vSwapchainImageViews = m_VkbSwapchain.get_image_views().value();
 }

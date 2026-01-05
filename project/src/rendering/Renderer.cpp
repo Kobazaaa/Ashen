@@ -271,7 +271,9 @@ void ashen::Renderer::HandleInput()
     );
 
 
+#ifdef _DEBUG
     PrintStats();
+#endif
 }
 void ashen::Renderer::PrintStats()
 {
@@ -289,7 +291,7 @@ void ashen::Renderer::PrintStats()
         frames = 0;
         elapsedTime = 0.f;
     }
-
+    else return;
 
     // -- Move cursor up to overwrite previous stats --
     static bool first = true;
@@ -748,8 +750,6 @@ void ashen::Renderer::RenderFrame(uint32_t imageIndex)
 
     SetRenderTarget(m_UseHDR ? renderImage.GetView() : m_pContext->GetSwapchainImageViews()[imageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     {
-        // -- Space Objects --
-
         // -- Ground Objects --
         Pipeline* pGroundShader = &m_GroundFromAtmosphere;
         pGroundShader->Bind(cmd);
