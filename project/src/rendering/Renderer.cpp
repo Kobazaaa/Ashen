@@ -277,20 +277,6 @@ void ashen::Renderer::HandleInput()
     );
 
 
-    // -- Ozone --
-    static bool oPrev = false;
-    const bool oCurr = m_pWindow->IsKeyDown(GLFW_KEY_O);
-    if (oCurr && !oPrev)
-        m_UseOzone = !m_UseOzone;
-    oPrev = oCurr;
-
-    // -- Phase Function --
-    static bool fPrev = false;
-    const bool fCurr = m_pWindow->IsKeyDown(GLFW_KEY_F);
-    if (fCurr && !fPrev)
-        m_PhaseFunctionIndex = (m_PhaseFunctionIndex + 1) % m_PhaseFunctionCount;
-    fPrev = fCurr;
-
 #ifdef _DEBUG
     PrintStats();
 #endif
