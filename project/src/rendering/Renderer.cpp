@@ -277,7 +277,23 @@ void ashen::Renderer::HandleInput()
     );
 
 
+    // -- Ozone --
+    static bool oPrev = false;
+    const bool oCurr = m_pWindow->IsKeyDown(GLFW_KEY_O);
+    if (oCurr && !oPrev)
+        m_UseOzone = !m_UseOzone;
+    oPrev = oCurr;
+
+    // -- Phase Function --
+    static bool fPrev = false;
+    const bool fCurr = m_pWindow->IsKeyDown(GLFW_KEY_F);
+    if (fCurr && !fPrev)
+        m_PhaseFunctionIndex = (m_PhaseFunctionIndex + 1) % m_PhaseFunctionCount;
+    fPrev = fCurr;
+
+#ifdef _DEBUG
     PrintStats();
+#endif
 }
 void ashen::Renderer::PrintStats()
 {
@@ -295,7 +311,7 @@ void ashen::Renderer::PrintStats()
         frames = 0;
         elapsedTime = 0.f;
     }
-
+    else return;
 
     // -- Move cursor up to overwrite previous stats --
     static bool first = true;
@@ -754,8 +770,6 @@ void ashen::Renderer::RenderFrame(uint32_t imageIndex)
 
 	SetRenderTarget(m_UseHDR ? renderImage.GetView() : m_pContext->GetSwapchainImageViews()[imageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     {
-        // -- Space Objects --
-
         // -- Ground Objects --
         Pipeline* pGroundShader = &m_GroundFromAtmosphere;
         pGroundShader->Bind(cmd);
