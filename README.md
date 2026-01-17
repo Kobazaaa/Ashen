@@ -10,3 +10,6 @@ Since I would be performing performance tests, I wanted to avoid any possible ov
 <br>
 Pompeii also is "too much" for what I wanted to achieve, and with this new project, Ashen, I can quickly implement a Renderer that doesn't need to be 100% perfect, but just needs to be able to render my implementation of Single Atmospheric Scattering.
 
+## Work in Progress
+
+Right now the renderer is still work in progress, as I'm still working on setting up the infrastructure and main implementation.
