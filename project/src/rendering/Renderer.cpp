@@ -271,9 +271,9 @@ void ashen::Renderer::HandleInput()
     );
 
 
-#ifdef _DEBUG
+//#ifdef _DEBUG
     PrintStats();
-#endif
+//#endif
 }
 void ashen::Renderer::PrintStats()
 {
